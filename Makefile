@@ -25,6 +25,7 @@ export SSH_KEY?=~/.ssh/uservirtualization.pem
 export EC2_DNS?=ec2-3-80-58-62.compute-1.amazonaws.com
 export SSH_USER_HOST =  ec2-user@$(EC2_DNS)
 export SSH = ssh -i $(SSH_KEY) $(SSH_USER_HOST)
+export TARGET_PROJECT_PATH = /home/ec2-user/project
 
 .PHONY: help webserver
 
@@ -42,7 +43,7 @@ endif
 
 
 webserver-update-code: ## Copies your current code to webserver
-	rsync -r . webserver:~/project
+	rsync -r . webserver:$(TARGET_PROJECT_PATH)
 
 webserver: ## provision webserver
 ifneq ($(USER),ec2-user) # if running on dev enviornment
@@ -50,7 +51,9 @@ ifneq ($(USER),ec2-user) # if running on dev enviornment
 	$(SSH)  make webserver -f project/Makefile
 
 else # if running on ec2
-	@echo "successfully ran on ec2 instance"
+	@echo "successfully ran on ec2 instance"	
+	@$(TARGET_PROJECT_PATH)/scripts/provision-java7.sh
+
 endif
 
 # Ignore this last part; Just for priting help messages
