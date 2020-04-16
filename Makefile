@@ -27,6 +27,10 @@ export SSH_USER_HOST =  ec2-user@$(EC2_DNS)
 export SSH = ssh -i $(SSH_KEY) $(SSH_USER_HOST)
 export TARGET_PROJECT_PATH = /home/ec2-user/project
 
+export TAG = [  INFO  ]
+
+WEBSERVER_PORT = 8000
+
 .PHONY: help webserver
 
 assert-ec2: # Confirms command is being run under an EC2 instance
@@ -48,11 +52,24 @@ webserver-update-code: ## Copies your current code to webserver
 webserver: ## provision webserver
 ifneq ($(USER),ec2-user) # if running on dev enviornment
 	rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_USER_HOST):~/project
-	$(SSH)  make webserver -f project/Makefile
+	$(SSH) make webserver -f project/Makefile
 
 else # if running on ec2
-	@echo "successfully ran on ec2 instance"	
+	@echo $(TAG) "running code on EC2 instance"	
 	@$(TARGET_PROJECT_PATH)/scripts/provision-java7.sh
+
+	@echo $(TAG) compiling webserver
+	javac -cp $(TARGET_PROJECT_PATH)/webserver $(TARGET_PROJECT_PATH)/webserver/pt/ulisboa/tecnico/cnv/server/WebServer.java
+
+	@echo $(TAG) TODO instrument solvers
+
+
+	@echo $(TAG) killing previous servers running on port $(WEBSERVER_PORT)
+	@kill `sudo ss -tupln | grep $(WEBSERVER_PORT) |egrep "pid=[0-9]*" -o | egrep "[^pid=][0-9]*" -o` || true
+	@sleep 1
+
+	@echo $(TAG) running webserver
+	java -cp $(TARGET_PROJECT_PATH)/webserver pt.ulisboa.tecnico.cnv.server.WebServer && read
 
 endif
 

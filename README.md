@@ -8,7 +8,7 @@ Before doing anything else you should make sure you satisfy all of
 these requirements:
   - developing on a linux environment
   - installed: make, rsync (on both your computer and ec2)
-  
+
 
 Deploying
 ---------
