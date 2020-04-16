@@ -30,7 +30,7 @@ export TARGET_PROJECT_PATH = /home/ec2-user/project
 export TAG = [  INFO  ]
 
 WEBSERVER_PORT = 8000
-
+WEBSERVER_CP = ~ec2-user/BIT:~ec2-user/BIT/samples:$(TARGET_PROJECT_PATH)/webserver
 .PHONY: help webserver
 
 assert-ec2: # Confirms command is being run under an EC2 instance
@@ -47,7 +47,7 @@ endif
 
 
 webserver-update-code: ## Copies your current code to webserver
-	rsync -r . webserver:$(TARGET_PROJECT_PATH)
+	rsync -r -p . webserver:$(TARGET_PROJECT_PATH)
 
 webserver: ## provision webserver
 ifneq ($(USER),ec2-user) # if running on dev enviornment
@@ -59,17 +59,17 @@ else # if running on ec2
 	@$(TARGET_PROJECT_PATH)/scripts/provision-java7.sh
 
 	@echo $(TAG) compiling webserver
-	javac -cp $(TARGET_PROJECT_PATH)/webserver $(TARGET_PROJECT_PATH)/webserver/pt/ulisboa/tecnico/cnv/server/WebServer.java
+	javac -cp $(WEBSERVER_CP) $(TARGET_PROJECT_PATH)/webserver/pt/ulisboa/tecnico/cnv/server/WebServer.java
 
 	@echo $(TAG) TODO instrument solvers
-
+	@$(TARGET_PROJECT_PATH)/scripts/config-bit.sh
 
 	@echo $(TAG) killing previous servers running on port $(WEBSERVER_PORT)
 	@kill `sudo ss -tupln | grep $(WEBSERVER_PORT) |egrep "pid=[0-9]*" -o | egrep "[^pid=][0-9]*" -o` || true
 	@sleep 1
 
 	@echo $(TAG) running webserver
-	java -cp $(TARGET_PROJECT_PATH)/webserver pt.ulisboa.tecnico.cnv.server.WebServer && read
+	java -cp $(WEBSERVER_CP) pt.ulisboa.tecnico.cnv.server.WebServer && read
 
 endif
 
