@@ -6,4 +6,3 @@ if [[ ! -d "/home/ec2-user/BIT" ]]; then
     unzip /tmp/BIT.zip -d ~ec2-user/
 fi
 
-export CLASSPATH="$CLASSPATH:~/BIT:~/BIT/samples:./"
