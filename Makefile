@@ -44,10 +44,6 @@ ifneq ($(USER),ec2-user)
 	exit 1
 endif
 
-
-webserver-update-code: ## Copies your current code to webserver
-	rsync -r -p . webserver:$(TARGET_PROJECT_PATH)
-
 webserver: ## provision webserver
 ifneq ($(USER),ec2-user) # if running on dev enviornment
 	rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_USER_HOST):~/project
@@ -58,6 +54,11 @@ else # if running on ec2
 	@echo $(TAG) "running code on EC2 instance"
 	$(TARGET_PROJECT_PATH)/scripts/provision-webserver.sh
 endif
+
+webserver-rnl: ## provision webserver on RNL machine
+	cp -r . ~/project
+	~/project/scripts/provision-webserver.sh
+
 
 # Ignore this last part; Just for priting help messages
 help: ## Prints this message and exits

@@ -6,19 +6,21 @@
 # Configure these environment variables:
 #   AWS_SSH_KEY - Your ssh key to connect you the EC2 instance
 #
-export BIT_TOOL=ICount # instrumentation tool to test
+export BIT_TOOL=SolverStatistics # instrumentation tool to test
 
-export TARGET_PROJECT_PATH=/home/ec2-user/project
+export TARGET_PROJECT_PATH=~/project
 
 export TAG="[  INFO  ]"
 
-export BIT_PATH=/home/ec2-user/BIT
+export BIT_PATH=~/BIT
 
 export WEBSERVER=$TARGET_PROJECT_PATH/webserver
 export WEBSERVER_PORT=8000
-export CLASSPATH=$BIT_PATH:$BIT_PATH/samples:$WEBSERVER
+export CLASSPATH=$BIT_PATH:$BIT_PATH/samples:$WEBSERVER:$TARGET_PROJECT_PATH/instrumentation
 
 export WEBSERVER_CODE=$WEBSERVER/pt/ulisboa/tecnico/cnv/server
+export SOLVERS_CODE=$WEBSERVER/pt/ulisboa/tecnico/cnv/solver
+export INSTRUMENTED_CODE=$SOLVERS_CODE
 
 set -e
 
@@ -36,7 +38,7 @@ javac $TARGET_PROJECT_PATH/instrumentation/*.java
 
 #	Instrumentation with the selected tool; The code is instrumented inplace
 echo $TAG instrumenting with $BIT_TOOL tool
-java $BIT_TOOL $WEBSERVER_CODE $WEBSERVER_CODE
+java $BIT_TOOL -alloc $INSTRUMENTED_CODE $INSTRUMENTED_CODE
 
 echo $TAG killing previous servers running on port $WEBSERVER_PORT
 kill $(sudo ss -tupln | grep $WEBSERVER_PORT |egrep "pid=[0-9]*" -o | egrep "[^pid=][0-9]*" -o) || true
