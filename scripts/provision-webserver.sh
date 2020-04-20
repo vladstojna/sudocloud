@@ -16,37 +16,34 @@ export BIT_PATH=/home/ec2-user/BIT
 
 export WEBSERVER=$TARGET_PROJECT_PATH/webserver
 export WEBSERVER_PORT=8000
-export WEBSERVER_CP=$BIT_PATH:$BIT_PATH/samples:$WEBSERVER
+export CLASSPATH=$BIT_PATH:$BIT_PATH/samples:$WEBSERVER
 
 export WEBSERVER_CODE=$WEBSERVER/pt/ulisboa/tecnico/cnv/server
 
 set -e
 
 source $TARGET_PROJECT_PATH/scripts/provision-java7.sh
-#	Installing BIT tool on ~/BIT
 source $TARGET_PROJECT_PATH/scripts/config-bit.sh
-
-
 
 #	First we compile the original webserver
 echo $TAG compiling webserver
-javac -cp $WEBSERVER_CP $TARGET_PROJECT_PATH/webserver/pt/ulisboa/tecnico/cnv/server/WebServer.java
+javac $TARGET_PROJECT_PATH/webserver/pt/ulisboa/tecnico/cnv/server/WebServer.java
 
 #	Instrumentation of the webserver
 echo $TAG TODO instrument solvers
 echo $TAG compiling instrumentation tools
-javac -cp $BIT_PATH $TARGET_PROJECT_PATH/instrumentation/*.java 
+javac $TARGET_PROJECT_PATH/instrumentation/*.java 
 
 #	Instrumentation with the selected tool; The code is instrumented inplace
 echo $TAG instrumenting with $BIT_TOOL tool
-java -cp $WEBSERVER_CP $BIT_TOOL $WEBSERVER_CODE $WEBSERVER_CODE
+java $BIT_TOOL $WEBSERVER_CODE $WEBSERVER_CODE
 
 echo $TAG killing previous servers running on port $WEBSERVER_PORT
 kill $(sudo ss -tupln | grep $WEBSERVER_PORT |egrep "pid=[0-9]*" -o | egrep "[^pid=][0-9]*" -o) || true
 sleep 1
 
 echo $TAG running webserver
-java -cp $WEBSERVER_CP pt.ulisboa.tecnico.cnv.server.WebServer && read
+java $WEBSERVER_CP pt.ulisboa.tecnico.cnv.server.WebServer && read
 
 
 ################################################
