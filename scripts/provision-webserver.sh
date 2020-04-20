@@ -23,6 +23,9 @@ export WEBSERVER_CODE=$WEBSERVER/pt/ulisboa/tecnico/cnv/server
 set -e
 
 source $TARGET_PROJECT_PATH/scripts/provision-java7.sh
+#	Installing BIT tool on ~/BIT
+source $TARGET_PROJECT_PATH/scripts/config-bit.sh
+
 
 
 #	First we compile the original webserver
@@ -31,9 +34,6 @@ javac -cp $WEBSERVER_CP $TARGET_PROJECT_PATH/webserver/pt/ulisboa/tecnico/cnv/se
 
 #	Instrumentation of the webserver
 echo $TAG TODO instrument solvers
-#	Installing BIT tool on ~/BIT
-$TARGET_PROJECT_PATH/scripts/config-bit.sh
-
 echo $TAG compiling instrumentation tools
 javac -cp $BIT_PATH $TARGET_PROJECT_PATH/instrumentation/*.java 
 
