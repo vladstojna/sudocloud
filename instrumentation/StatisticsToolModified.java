@@ -75,8 +75,10 @@ public class StatisticsToolModified
             // Redirect output to standard output again
             System.setOut(printStreams.get(0));
             // Close PrintStream to file
-            if (printStreams.get(1) != null)
+            if (printStreams.get(1) != null) {
+                printStreams.get(1).flush();
                 printStreams.get(1).close();
+            }
         }
     }
     
@@ -172,8 +174,11 @@ public class StatisticsToolModified
 							BasicBlock bb = (BasicBlock) b.nextElement();
 							bb.addBefore("StatisticsToolModified", "dynInstrCount", new Integer(bb.size()));
 						}
+						
+						if (routine.getMethodName().equals("solveSudoku"))
+                            routine.addAfter("StatisticsToolModified", "printDynamic", "null");
 					}
-					ci.addAfter("StatisticsToolModified", "printDynamic", "null");
+					//ci.addAfter("StatisticsToolModified", "printDynamic", "null");
 					ci.write(out_filename);
 				}
 			}
@@ -241,8 +246,11 @@ public class StatisticsToolModified
 								instr.addBefore("StatisticsToolModified", "allocCount", new Integer(opcode));
 							}
 						}
+						
+						if (routine.getMethodName().equals("solveSudoku"))
+                            routine.addAfter("StatisticsToolModified", "printAlloc", "null");
 					}
-					ci.addAfter("StatisticsToolModified", "printAlloc", "null");
+					//ci.addAfter("StatisticsToolModified", "printAlloc", "null");
 					ci.write(out_filename);
 				}
 			}
@@ -310,8 +318,11 @@ public class StatisticsToolModified
 								}
 							}
 						}
+						
+						if (routine.getMethodName().equals("solveSudoku"))
+                            routine.addAfter("StatisticsToolModified", "printLoadStore", "null");
 					}
-					ci.addAfter("StatisticsToolModified", "printLoadStore", "null");
+					//ci.addAfter("StatisticsToolModified", "printLoadStore", "null");
 					ci.write(out_filename);
 				}
 			}	
@@ -395,10 +406,13 @@ public class StatisticsToolModified
 								k++;
 							}
 						}
+						
+						if (routine.getMethodName().equals("solveSudoku"))
+                            routine.addAfter("StatisticsToolModified", "printBranch", "null");
 					}
 					ci.addBefore("StatisticsToolModified", "setBranchClassName", ci.getClassName());
 					ci.addBefore("StatisticsToolModified", "branchInit", new Integer(total));
-					ci.addAfter("StatisticsToolModified", "printBranch", "null");
+					//ci.addAfter("StatisticsToolModified", "printBranch", "null");
 					ci.write(out_filename);
 				}
 			}	
