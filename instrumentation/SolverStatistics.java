@@ -1,5 +1,5 @@
 //
-// StatisticsTool.java
+// SolverStatistics.java
 //
 // This program measures and instruments to obtain different statistics
 // about Java programs.
@@ -21,7 +21,7 @@ import java.io.File;
 import java.util.Enumeration;
 import java.util.Vector;
 
-public class StatisticsTool 
+public class SolverStatistics 
 {
 	private static int dyn_method_count = 0;
 	private static int dyn_bb_count = 0;
@@ -45,7 +45,7 @@ public class StatisticsTool
 		
 	public static void printUsage() 
 		{
-			System.out.println("Syntax: java StatisticsTool -stat_type in_path [out_path]");
+			System.out.println("Syntax: java SolverStatistics -stat_type in_path [out_path]");
 			System.out.println("        where stat_type can be:");
 			System.out.println("        static:     static properties");
 			System.out.println("        dynamic:    dynamic properties");
@@ -63,7 +63,7 @@ public class StatisticsTool
 	public static void doStatic(File in_dir) 
 		{
 			String filelist[] = in_dir.list();
-			int method_count = 0;
+
 			int bb_count = 0;
 			int instr_count = 0;
 			int class_count = 0;
@@ -124,14 +124,14 @@ public class StatisticsTool
 					ClassInfo ci = new ClassInfo(in_filename);
 					for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
 						Routine routine = (Routine) e.nextElement();
-						routine.addBefore("StatisticsTool", "dynMethodCount", new Integer(1));
+						routine.addBefore("SolverStatistics", "dynMethodCount", new Integer(1));
                     
 						for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
 							BasicBlock bb = (BasicBlock) b.nextElement();
-							bb.addBefore("StatisticsTool", "dynInstrCount", new Integer(bb.size()));
+							bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
 						}
 					}
-					ci.addAfter("StatisticsTool", "printDynamic", "null");
+					ci.addAfter("SolverStatistics", "printDynamic", "null");
 					ci.write(out_filename);
 				}
 			}
@@ -191,11 +191,11 @@ public class StatisticsTool
 								(opcode==InstructionTable.newarray) ||
 								(opcode==InstructionTable.anewarray) ||
 								(opcode==InstructionTable.multianewarray)) {
-								instr.addBefore("StatisticsTool", "allocCount", new Integer(opcode));
+								instr.addBefore("SolverStatistics", "allocCount", new Integer(opcode));
 							}
 						}
 					}
-					ci.addAfter("StatisticsTool", "printAlloc", "null");
+					ci.addAfter("SolverStatistics", "printAlloc", "null");
 					ci.write(out_filename);
 				}
 			}
@@ -246,21 +246,21 @@ public class StatisticsTool
 							Instruction instr = (Instruction) instrs.nextElement();
 							int opcode=instr.getOpcode();
 							if (opcode == InstructionTable.getfield)
-								instr.addBefore("StatisticsTool", "LSFieldCount", new Integer(0));
+								instr.addBefore("SolverStatistics", "LSFieldCount", new Integer(0));
 							else if (opcode == InstructionTable.putfield)
-								instr.addBefore("StatisticsTool", "LSFieldCount", new Integer(1));
+								instr.addBefore("SolverStatistics", "LSFieldCount", new Integer(1));
 							else {
 								short instr_type = InstructionTable.InstructionTypeTable[opcode];
 								if (instr_type == InstructionTable.LOAD_INSTRUCTION) {
-									instr.addBefore("StatisticsTool", "LSCount", new Integer(0));
+									instr.addBefore("SolverStatistics", "LSCount", new Integer(0));
 								}
 								else if (instr_type == InstructionTable.STORE_INSTRUCTION) {
-									instr.addBefore("StatisticsTool", "LSCount", new Integer(1));
+									instr.addBefore("SolverStatistics", "LSCount", new Integer(1));
 								}
 							}
 						}
 					}
-					ci.addAfter("StatisticsTool", "printLoadStore", "null");
+					ci.addAfter("SolverStatistics", "printLoadStore", "null");
 					ci.write(out_filename);
 				}
 			}	
@@ -327,23 +327,23 @@ public class StatisticsTool
 
 					for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
 						Routine routine = (Routine) e.nextElement();
-						routine.addBefore("StatisticsTool", "setBranchMethodName", routine.getMethodName());
+						routine.addBefore("SolverStatistics", "setBranchMethodName", routine.getMethodName());
 						InstructionArray instructions = routine.getInstructionArray();
 						for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
 							BasicBlock bb = (BasicBlock) b.nextElement();
 							Instruction instr = (Instruction) instructions.elementAt(bb.getEndAddress());
 							short instr_type = InstructionTable.InstructionTypeTable[instr.getOpcode()];
 							if (instr_type == InstructionTable.CONDITIONAL_INSTRUCTION) {
-								instr.addBefore("StatisticsTool", "setBranchPC", new Integer(instr.getOffset()));
-								instr.addBefore("StatisticsTool", "updateBranchNumber", new Integer(k));
-								instr.addBefore("StatisticsTool", "updateBranchOutcome", "BranchOutcome");
+								instr.addBefore("SolverStatistics", "setBranchPC", new Integer(instr.getOffset()));
+								instr.addBefore("SolverStatistics", "updateBranchNumber", new Integer(k));
+								instr.addBefore("SolverStatistics", "updateBranchOutcome", "BranchOutcome");
 								k++;
 							}
 						}
 					}
-					ci.addBefore("StatisticsTool", "setBranchClassName", ci.getClassName());
-					ci.addBefore("StatisticsTool", "branchInit", new Integer(total));
-					ci.addAfter("StatisticsTool", "printBranch", "null");
+					ci.addBefore("SolverStatistics", "setBranchClassName", ci.getClassName());
+					ci.addBefore("SolverStatistics", "branchInit", new Integer(total));
+					ci.addAfter("SolverStatistics", "printBranch", "null");
 					ci.write(out_filename);
 				}
 			}	
