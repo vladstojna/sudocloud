@@ -176,7 +176,7 @@ public class StatisticsToolModified
 						}
 						
 						if (routine.getMethodName().equals("solveSudoku"))
-                            routine.addAfter("StatisticsToolModified", "printDynamic", "null");
+						    routine.addAfter("StatisticsToolModified", "printDynamic", "null");
 					}
 					//ci.addAfter("StatisticsToolModified", "printDynamic", "null");
 					ci.write(out_filename);
