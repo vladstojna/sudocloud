@@ -37,14 +37,12 @@ public class SolverStatistics
     private static int dyn_method_count = 0;
     private static int dyn_bb_count = 0;
     private static int dyn_instr_count = 0;
-    
-    private static final int MAX_THREADS = 100;
+
+    private static final int MAX_THREADS = 33; // 32 + main thread
 
     // threadMapping maps a threadId to its respective local data
-    private static HashMap<Long, MetricsData> threadMapping;
     private static MetricsData[] metrics;
-    private static final AtomicInteger nextMetrixIndex = new AtomicInteger(0);
-    
+
     public static List<PrintStream> setMetricsFileToOutput() {
         // Save original System.out
         PrintStream standardOutput = System.out;
@@ -103,16 +101,16 @@ public class SolverStatistics
 		ClassInfo ci = new ClassInfo(in_filename);
 		for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
 		    Routine routine = (Routine) e.nextElement();
-		    routine.addBefore("SolverStatistics", "dynMethodCount", new Integer(1));
-                    
-		    for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
-			BasicBlock bb = (BasicBlock) b.nextElement();
-			bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
-		    }
-		    
 		    if (routine.getMethodName().equals("solveSudoku")) {
 			routine.addBefore("SolverStatistics", "metricsInit", "null");
 			routine.addAfter("SolverStatistics", "printDynamic", "null");
+		    } else {
+			routine.addBefore("SolverStatistics", "dynMethodCount", new Integer(1));
+                    
+			for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
+			    BasicBlock bb = (BasicBlock) b.nextElement();
+			    bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
+			}
 		    }
 		}
 		//ci.addAfter("SolverStatistics", "printDynamic", "null");
@@ -152,11 +150,6 @@ public class SolverStatistics
 	if (metrics == null) {
 	    metrics = new MetricsData[MAX_THREADS];
 	}
-	if (threadMapping == null) {
-	    threadMapping = new HashMap<Long, MetricsData>(MAX_THREADS);
-	}
-	// add a mapping from current threadId to an element in metrics
-	threadMapping.put(Thread.currentThread().getId(),metrics[nextMetrixIndex.getAndIncrement()]);
     }
     
     
@@ -168,9 +161,9 @@ public class SolverStatistics
     
     public static synchronized void dynMethodCount(int incr) 
     {
+	// FIXME beware unsafe downcasting and index out bounds possible
+	metrics[(int) Thread.currentThread().getId()].dyn_method_count++;
 	System.out.println("thread ID: " + Thread.currentThread().getId());
-	MetricsData threadData = threadMapping.get(Thread.currentThread().getId()); // FIXME problematic line
-	threadData.dyn_method_count++;  // FIXME Beware, index out of bounds possible
 	dyn_method_count++;
     }
    
