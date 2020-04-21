@@ -23,28 +23,27 @@ import java.util.Enumeration;
 import java.util.Vector;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class SolverStatistics
 {
+    private class MetricsData {
+	int dyn_method_count = 0;
+	int dyn_bb_count = 0;
+	int dyn_instr_count = 0;
+    }
+
     private static int dyn_method_count = 0;
     private static int dyn_bb_count = 0;
     private static int dyn_instr_count = 0;
     
-    private static int newcount = 0;
-    private static int newarraycount = 0;
-    private static int anewarraycount = 0;
-    private static int multianewarraycount = 0;
-    
-    private static int loadcount = 0;
-    private static int storecount = 0;
-    private static int fieldloadcount = 0;
-    private static int fieldstorecount = 0;
-    
-    private static StatisticsBranch[] branch_info;
-    private static int branch_number;
-    private static int branch_pc;
-    private static String branch_class_name;
-    private static String branch_method_name;
+    private static final int MAX_THREADS = 100;
+
+    // threadMapping maps a threadId to its respective local data
+    private static HashMap<Long, MetricsData> threadMapping;
+    private static MetricsData[] metrics;
+    private static final AtomicInteger nextMetrixIndex = new AtomicInteger(0);
     
     public static List<PrintStream> setMetricsFileToOutput() {
         // Save original System.out
@@ -111,15 +110,18 @@ public class SolverStatistics
 			bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
 		    }
 		    
-		    if (routine.getMethodName().equals("solveSudoku"))
+		    if (routine.getMethodName().equals("solveSudoku")) {
+			routine.addBefore("SolverStatistics", "metricsInit", "null");
 			routine.addAfter("SolverStatistics", "printDynamic", "null");
+		    }
 		}
 		//ci.addAfter("SolverStatistics", "printDynamic", "null");
 		ci.write(out_filename);
 	    }
 	}
     }
-    
+
+   
     public static synchronized void printDynamic(String foo) 
     {
 	List<PrintStream> printStreams = setMetricsFileToOutput();
@@ -144,6 +146,18 @@ public class SolverStatistics
 	
 	closeMetricsFileToOutput(printStreams);
     }
+
+    // FIXME remove synchronized
+    public static synchronized void metricsInit(String foo) {
+	if (metrics == null) {
+	    metrics = new MetricsData[MAX_THREADS];
+	}
+	if (threadMapping == null) {
+	    threadMapping = new HashMap<Long, MetricsData>(MAX_THREADS);
+	}
+	// add a mapping from current threadId to an element in metrics
+	threadMapping.put(Thread.currentThread().getId(),metrics[nextMetrixIndex.getAndIncrement()]);
+    }
     
     
     public static synchronized void dynInstrCount(int incr) 
@@ -154,6 +168,9 @@ public class SolverStatistics
     
     public static synchronized void dynMethodCount(int incr) 
     {
+	System.out.println("thread ID: " + Thread.currentThread().getId());
+	MetricsData threadData = threadMapping.get(Thread.currentThread().getId()); // FIXME problematic line
+	threadData.dyn_method_count++;  // FIXME Beware, index out of bounds possible
 	dyn_method_count++;
     }
    
