@@ -91,64 +91,7 @@ public class SolverStatistics
 	System.out.println("        in which case only in_path is required");                
 	System.exit(-1);
     }
-    
-    public static void doStatic(File in_dir) 
-    {
-	String filelist[] = in_dir.list();
-	int method_count = 0;
-	int bb_count = 0;
-	int instr_count = 0;
-	int class_count = 0;
-	
-	for (int i = 0; i < filelist.length; i++) {
-	    String filename = filelist[i];
-	    if (filename.endsWith(".class")) {
-		class_count++;
-		String in_filename = in_dir.getAbsolutePath() + System.getProperty("file.separator") + filename;
-		ClassInfo ci = new ClassInfo(in_filename);
-		Vector routines = ci.getRoutines();
-		method_count += routines.size();
-		
-		for (Enumeration e = routines.elements(); e.hasMoreElements(); ) {
-		    Routine routine = (Routine) e.nextElement();
-		    BasicBlockArray bba = routine.getBasicBlocks();
-		    bb_count += bba.size();
-		    InstructionArray ia = routine.getInstructionArray();
-		    instr_count += ia.size();
-		}
-	    }
-	}
-	
-	List<PrintStream> printStreams = setMetricsFileToOutput();
-	
-	System.out.println("Static information summary:");
-	System.out.println("Number of class files:  " + class_count);
-	System.out.println("Number of methods:      " + method_count);
-	System.out.println("Number of basic blocks: " + bb_count);
-	System.out.println("Number of instructions: " + instr_count);
-	
-	if (class_count == 0 || method_count == 0) {
-	    closeMetricsFileToOutput(printStreams);
-	    return;
-	}
-	
-	float instr_per_bb = (float) instr_count / (float) bb_count;
-	float instr_per_method = (float) instr_count / (float) method_count;
-	float instr_per_class = (float) instr_count / (float) class_count;
-	float bb_per_method = (float) bb_count / (float) method_count;
-	float bb_per_class = (float) bb_count / (float) class_count;
-	float method_per_class = (float) method_count / (float) class_count;
-	
-	System.out.println("Average number of instructions per basic block: " + instr_per_bb);
-	System.out.println("Average number of instructions per method:      " + instr_per_method);
-	System.out.println("Average number of instructions per class:       " + instr_per_class);
-	System.out.println("Average number of basic blocks per method:      " + bb_per_method);
-	System.out.println("Average number of basic blocks per class:       " + bb_per_class);
-	System.out.println("Average number of methods per class:            " + method_per_class);
-	
-	closeMetricsFileToOutput(printStreams);
-    }
-    
+
     public static void doDynamic(File in_dir, File out_dir) 
     {
 	String filelist[] = in_dir.list();
