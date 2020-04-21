@@ -162,7 +162,7 @@ public class SolverStatistics
     public static synchronized void dynMethodCount(int incr) 
     {
 	// FIXME beware unsafe downcasting and index out bounds possible
-	metrics[(int) Thread.currentThread().getId()].dyn_method_count++;
+	metrics[(int) Thread.currentThread().getId()].dyn_method_count++; // FIXME problematic line
 	System.out.println("thread ID: " + Thread.currentThread().getId());
 	dyn_method_count++;
     }

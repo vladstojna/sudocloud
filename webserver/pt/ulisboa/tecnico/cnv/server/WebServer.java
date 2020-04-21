@@ -20,6 +20,8 @@ import java.util.concurrent.Executors;
 
 public class WebServer {
 
+	private static int MAX_THREADS = 32;
+
 	public static void main(final String[] args) throws Exception {
 
 		//final HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 8000), 0);
@@ -31,7 +33,10 @@ public class WebServer {
 		server.createContext("/sudoku", new MyHandler());
 
 		// be aware! infinite pool of threads!
-		server.setExecutor(Executors.newCachedThreadPool());
+		//server.setExecutor(Executors.newCachedThreadPool());
+
+		server.setExecutor(Executors.newFixedThreadPool(MAX_THREADS));
+
 		server.start();
 
 		System.out.println(server.getAddress().toString());
