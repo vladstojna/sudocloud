@@ -1,5 +1,5 @@
 //
-// SolverStatistics.java
+// StatisticsTool.java
 //
 // This program measures and instruments to obtain different statistics
 // about Java programs.
@@ -17,11 +17,14 @@
 // and modifying this software.
 
 import BIT.highBIT.*;
-import java.io.File;
+//import java.io.File;
+import java.io.*;
 import java.util.Enumeration;
 import java.util.Vector;
+import java.util.List;
+import java.util.ArrayList;
 
-public class SolverStatistics 
+public class SolverStatistics
 {
 	private static int dyn_method_count = 0;
 	private static int dyn_bb_count = 0;
@@ -42,10 +45,46 @@ public class SolverStatistics
 	private static int branch_pc;
 	private static String branch_class_name;
 	private static String branch_method_name;
-		
+    
+    public static List<PrintStream> setMetricsFileToOutput() {
+        // Save original System.out
+        PrintStream standardOutput = System.out;
+        
+        PrintStream ps = null;
+        try {
+            // Create file to redirect output
+            File outputFile = new File(System.getProperty("user.home") + "/metrics.txt");
+            outputFile.createNewFile(); // if file exists, it will do nothing
+            FileOutputStream fileOutputStream = new FileOutputStream(outputFile, true);
+            ps = new PrintStream(fileOutputStream);
+            
+            // Redirect output to file
+            System.setOut(ps);
+            List<PrintStream> result = new ArrayList<>();
+            result.add(standardOutput);
+            result.add(ps);
+            return result;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    public static void closeMetricsFileToOutput(List<PrintStream> printStreams) {
+        if (printStreams != null) {
+            // Redirect output to standard output again
+            System.setOut(printStreams.get(0));
+            // Close PrintStream to file
+            if (printStreams.get(1) != null) {
+                printStreams.get(1).flush();
+                printStreams.get(1).close();
+            }
+        }
+    }
+    
 	public static void printUsage() 
 		{
-			System.out.println("Syntax: java SolverStatistics -stat_type in_path [out_path]");
+			System.out.println("Syntax: java StatisticsTool -stat_type in_path [out_path]");
 			System.out.println("        where stat_type can be:");
 			System.out.println("        static:     static properties");
 			System.out.println("        dynamic:    dynamic properties");
@@ -56,14 +95,14 @@ public class SolverStatistics
 			System.out.println("        in_path:  directory from which the class files are read");
 			System.out.println("        out_path: directory to which the class files are written");
 			System.out.println("        Both in_path and out_path are required unless stat_type is static");
-			System.out.println("        in which case only in_path is required");
+			System.out.println("        in which case only in_path is required");                
 			System.exit(-1);
 		}
 
 	public static void doStatic(File in_dir) 
 		{
 			String filelist[] = in_dir.list();
-
+			int method_count = 0;
 			int bb_count = 0;
 			int instr_count = 0;
 			int class_count = 0;
@@ -86,6 +125,8 @@ public class SolverStatistics
 					}
 				}
 			}
+			
+			List<PrintStream> printStreams = setMetricsFileToOutput();
 
 			System.out.println("Static information summary:");
 			System.out.println("Number of class files:  " + class_count);
@@ -94,6 +135,7 @@ public class SolverStatistics
 			System.out.println("Number of instructions: " + instr_count);
 			
 			if (class_count == 0 || method_count == 0) {
+			closeMetricsFileToOutput(printStreams);
 				return;
 			}
 			
@@ -110,11 +152,13 @@ public class SolverStatistics
 			System.out.println("Average number of basic blocks per method:      " + bb_per_method);
 			System.out.println("Average number of basic blocks per class:       " + bb_per_class);
 			System.out.println("Average number of methods per class:            " + method_per_class);
+			
+			closeMetricsFileToOutput(printStreams);
 		}
 
 	public static void doDynamic(File in_dir, File out_dir) 
 		{
-			String filelist[] = in_dir.list();
+            String filelist[] = in_dir.list();
 			
 			for (int i = 0; i < filelist.length; i++) {
 				String filename = filelist[i];
@@ -130,8 +174,11 @@ public class SolverStatistics
 							BasicBlock bb = (BasicBlock) b.nextElement();
 							bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
 						}
+						
+						if (routine.getMethodName().equals("solveSudoku"))
+						    routine.addAfter("SolverStatistics", "printDynamic", "null");
 					}
-					ci.addAfter("SolverStatistics", "printDynamic", "null");
+					//ci.addAfter("SolverStatistics", "printDynamic", "null");
 					ci.write(out_filename);
 				}
 			}
@@ -139,12 +186,15 @@ public class SolverStatistics
 	
     public static synchronized void printDynamic(String foo) 
 		{
+			List<PrintStream> printStreams = setMetricsFileToOutput();
+			
 			System.out.println("Dynamic information summary:");
 			System.out.println("Number of methods:      " + dyn_method_count);
 			System.out.println("Number of basic blocks: " + dyn_bb_count);
 			System.out.println("Number of instructions: " + dyn_instr_count);
 		
 			if (dyn_method_count == 0) {
+                closeMetricsFileToOutput(printStreams);
 				return;
 			}
 		
@@ -155,6 +205,8 @@ public class SolverStatistics
 			System.out.println("Average number of instructions per basic block: " + instr_per_bb);
 			System.out.println("Average number of instructions per method:      " + instr_per_method);
 			System.out.println("Average number of basic blocks per method:      " + bb_per_method);
+			
+			closeMetricsFileToOutput(printStreams);
 		}
     
 
@@ -194,8 +246,11 @@ public class SolverStatistics
 								instr.addBefore("SolverStatistics", "allocCount", new Integer(opcode));
 							}
 						}
+						
+						if (routine.getMethodName().equals("solveSudoku"))
+                            routine.addAfter("SolverStatistics", "printAlloc", "null");
 					}
-					ci.addAfter("SolverStatistics", "printAlloc", "null");
+					//ci.addAfter("SolverStatistics", "printAlloc", "null");
 					ci.write(out_filename);
 				}
 			}
@@ -203,11 +258,15 @@ public class SolverStatistics
 
 	public static synchronized void printAlloc(String s) 
 		{
+			List<PrintStream> printStreams = setMetricsFileToOutput();
+			
 			System.out.println("Allocations summary:");
 			System.out.println("new:            " + newcount);
 			System.out.println("newarray:       " + newarraycount);
 			System.out.println("anewarray:      " + anewarraycount);
 			System.out.println("multianewarray: " + multianewarraycount);
+			
+			closeMetricsFileToOutput(printStreams);
 		}
 
 	public static synchronized void allocCount(int type)
@@ -259,8 +318,11 @@ public class SolverStatistics
 								}
 							}
 						}
+						
+						if (routine.getMethodName().equals("solveSudoku"))
+                            routine.addAfter("SolverStatistics", "printLoadStore", "null");
 					}
-					ci.addAfter("SolverStatistics", "printLoadStore", "null");
+					//ci.addAfter("SolverStatistics", "printLoadStore", "null");
 					ci.write(out_filename);
 				}
 			}	
@@ -268,11 +330,15 @@ public class SolverStatistics
 
 	public static synchronized void printLoadStore(String s) 
 		{
+			List<PrintStream> printStreams = setMetricsFileToOutput();
+			
 			System.out.println("Load Store Summary:");
 			System.out.println("Field load:    " + fieldloadcount);
 			System.out.println("Field store:   " + fieldstorecount);
 			System.out.println("Regular load:  " + loadcount);
 			System.out.println("Regular store: " + storecount);
+			
+			closeMetricsFileToOutput(printStreams);
 		}
 
 	public static synchronized void LSFieldCount(int type) 
@@ -340,10 +406,13 @@ public class SolverStatistics
 								k++;
 							}
 						}
+						
+						if (routine.getMethodName().equals("solveSudoku"))
+                            routine.addAfter("SolverStatistics", "printBranch", "null");
 					}
 					ci.addBefore("SolverStatistics", "setBranchClassName", ci.getClassName());
 					ci.addBefore("SolverStatistics", "branchInit", new Integer(total));
-					ci.addAfter("SolverStatistics", "printBranch", "null");
+					//ci.addAfter("SolverStatistics", "printBranch", "null");
 					ci.write(out_filename);
 				}
 			}	
@@ -392,6 +461,8 @@ public class SolverStatistics
 
 	public static synchronized void printBranch(String foo)
 		{
+			List<PrintStream> printStreams = setMetricsFileToOutput();
+			
 			System.out.println("Branch summary:");
 			System.out.println("CLASS NAME" + '\t' + "METHOD" + '\t' + "PC" + '\t' + "TAKEN" + '\t' + "NOT_TAKEN");
 			
@@ -400,11 +471,13 @@ public class SolverStatistics
 					branch_info[i].print();
 				}
 			}
+			
+			closeMetricsFileToOutput(printStreams);
 		}
 	
 			
 	public static void main(String argv[]) 
-		{
+		{			
 			if (argv.length < 2 || !argv[0].startsWith("-")) {
 				printUsage();
 			}
