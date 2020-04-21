@@ -38,7 +38,7 @@ javac $TARGET_PROJECT_PATH/instrumentation/*.java
 
 #	Instrumentation with the selected tool; The code is instrumented inplace
 echo $TAG instrumenting with $BIT_TOOL tool
-java $BIT_TOOL -alloc $INSTRUMENTED_CODE $INSTRUMENTED_CODE
+java $BIT_TOOL $INSTRUMENTED_CODE $INSTRUMENTED_CODE
 
 echo $TAG killing previous servers running on port $WEBSERVER_PORT
 kill $(sudo ss -tupln | grep $WEBSERVER_PORT |egrep "pid=[0-9]*" -o | egrep "[^pid=][0-9]*" -o) || true
