@@ -28,7 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class SolverStatistics
 {
-    private class MetricsData {
+
+    public static class MetricsData {
 	int dyn_method_count = 0;
 	int dyn_bb_count = 0;
 	int dyn_instr_count = 0;
@@ -41,7 +42,7 @@ public class SolverStatistics
     private static final int MAX_THREADS = 33; // 32 + main thread
 
     // threadMapping maps a threadId to its respective local data
-    private static MetricsData[] metrics;
+    private static HashMap<Long, MetricsData> threadMapping;
 
     public static List<PrintStream> setMetricsFileToOutput() {
         // Save original System.out
@@ -102,7 +103,6 @@ public class SolverStatistics
 		for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
 		    Routine routine = (Routine) e.nextElement();
 		    if (routine.getMethodName().equals("solveSudoku")) {
-			routine.addBefore("SolverStatistics", "metricsInit", "null");
 			routine.addAfter("SolverStatistics", "printDynamic", "null");
 		    } else {
 			routine.addBefore("SolverStatistics", "dynMethodCount", new Integer(1));
@@ -128,6 +128,11 @@ public class SolverStatistics
 	System.out.println("Number of methods:      " + dyn_method_count);
 	System.out.println("Number of basic blocks: " + dyn_bb_count);
 	System.out.println("Number of instructions: " + dyn_instr_count);
+
+	MetricsData metrics = threadMapping.get(Thread.currentThread().getId());
+	System.out.println(">Number of methods:      " + metrics.dyn_method_count);
+	System.out.println(">Number of basic blocks: " + metrics.dyn_bb_count);
+	System.out.println(">Number of instructions: " + metrics.dyn_instr_count);
 	
 	if (dyn_method_count == 0) {
 	    closeMetricsFileToOutput(printStreams);
@@ -145,25 +150,25 @@ public class SolverStatistics
 	closeMetricsFileToOutput(printStreams);
     }
 
-    // FIXME remove synchronized
-    public static synchronized void metricsInit(String foo) {
-	if (metrics == null) {
-	    metrics = new MetricsData[MAX_THREADS];
-	}
-    }
-    
-    
     public static synchronized void dynInstrCount(int incr) 
     {
 	dyn_instr_count += incr;
 	dyn_bb_count++;
+	MetricsData metrics = threadMapping.get(Thread.currentThread().getId());
+	metrics.dyn_instr_count += incr;
+	metrics.dyn_bb_count++;
     }
     
     public static synchronized void dynMethodCount(int incr) 
     {
-	// FIXME beware unsafe downcasting and index out bounds possible
-	metrics[(int) Thread.currentThread().getId()].dyn_method_count++; // FIXME problematic line
-	System.out.println("thread ID: " + Thread.currentThread().getId());
+	Long currentThreadId = Thread.currentThread().getId();
+	if (threadMapping == null) {
+	    threadMapping = new HashMap<Long, MetricsData>();
+	}
+	if (threadMapping.get(currentThreadId) == null) {
+	    threadMapping.put(currentThreadId, new MetricsData());
+	}
+	threadMapping.get(currentThreadId).dyn_instr_count++;
 	dyn_method_count++;
     }
    
