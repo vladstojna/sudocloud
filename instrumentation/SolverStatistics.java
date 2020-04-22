@@ -38,8 +38,6 @@ public class SolverStatistics
     private static int dyn_bb_count = 0;
     private static int dyn_instr_count = 0;
 
-    private static final int MAX_THREADS = 33; // 32 + main thread
-
     // threadMapping maps a threadId to its respective local data
     private static ConcurrentHashMap<Long, MetricsData> threadMapping;
 
