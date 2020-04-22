@@ -99,16 +99,15 @@ public class SolverStatistics
 		ClassInfo ci = new ClassInfo(in_filename);
 		for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
 		    Routine routine = (Routine) e.nextElement();
-		    if (routine.getMethodName().equals("solveSudoku")) {
-			routine.addAfter("SolverStatistics", "printDynamic", "null");
-		    } else {
-			routine.addBefore("SolverStatistics", "dynMethodCount", new Integer(1));
+		    routine.addBefore("SolverStatistics", "dynMethodCount", new Integer(1));
                     
-			for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
-			    BasicBlock bb = (BasicBlock) b.nextElement();
-			    bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
-			}
+		    for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
+			BasicBlock bb = (BasicBlock) b.nextElement();
+			bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
 		    }
+		
+		    if (routine.getMethodName().equals("solveSudoku"))
+			routine.addAfter("SolverStatistics", "printDynamic", "null");
 		}
 		//ci.addAfter("SolverStatistics", "printDynamic", "null");
 		ci.write(out_filename);
