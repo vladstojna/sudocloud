@@ -23,8 +23,7 @@ import java.util.Enumeration;
 import java.util.Vector;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SolverStatistics
 {
@@ -42,7 +41,7 @@ public class SolverStatistics
     private static final int MAX_THREADS = 33; // 32 + main thread
 
     // threadMapping maps a threadId to its respective local data
-    private static HashMap<Long, MetricsData> threadMapping;
+    private static ConcurrentHashMap<Long, MetricsData> threadMapping;
 
     public static List<PrintStream> setMetricsFileToOutput() {
         // Save original System.out
@@ -163,7 +162,7 @@ public class SolverStatistics
     {
 	Long currentThreadId = Thread.currentThread().getId();
 	if (threadMapping == null) {
-	    threadMapping = new HashMap<Long, MetricsData>();
+	    threadMapping = new ConcurrentHashMap<Long, MetricsData>();
 	}
 	if (threadMapping.get(currentThreadId) == null) {
 	    threadMapping.put(currentThreadId, new MetricsData());
