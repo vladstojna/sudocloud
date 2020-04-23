@@ -29,13 +29,21 @@ public class SolverStatistics
 {
 
     public static class MetricsData {
+	// Metrics for doDynamic()
 	int dyn_method_count = 0;
 	int dyn_bb_count = 0;
 	int dyn_instr_count = 0;
     }
 
     // threadMapping maps a threadId to its respective local data
-    private static ConcurrentHashMap<Long, MetricsData> threadMapping;
+    private static ConcurrentHashMap<Long, MetricsData> threadMapping = new ConcurrentHashMap<Long, MetricsData>();
+
+
+    // FIXME the following is not working since it is infromation
+    // collected when instrumenting the class. Which means it won't be
+    // acessible when running the instrumented code.
+
+    private static int bb_count; // number of instrumented basic blocks
 
     public static List<PrintStream> setMetricsFileToOutput() {
         // Save original System.out
@@ -83,8 +91,7 @@ public class SolverStatistics
 	System.exit(-1);
     }
 
-    public static void doDynamic(File in_dir, File out_dir)
-    {
+    public static void doDynamic(File in_dir, File out_dir){
 	String filelist[] = in_dir.list();
 
 	for (int i = 0; i < filelist.length; i++) {
@@ -103,7 +110,7 @@ public class SolverStatistics
 		    }
 
 		    if (routine.getMethodName().equals("solveSudoku"))
-			routine.addAfter("SolverStatistics", "printDynamic", "null");
+		        routine.addAfter("SolverStatistics", "printDynamic", "null");
 		}
 		//ci.addAfter("SolverStatistics", "printDynamic", "null");
 		ci.write(out_filename);
@@ -118,10 +125,9 @@ public class SolverStatistics
 
 	System.out.println("Dynamic information summary for thread" + Thread.currentThread().getId());
 	MetricsData metrics = threadMapping.get(Thread.currentThread().getId());
-	System.out.println(">Number of methods:      " + metrics.dyn_method_count);
-	System.out.println(">Number of basic blocks: " + metrics.dyn_bb_count);
-	System.out.println(">Number of instructions: " + metrics.dyn_instr_count);
-
+	System.out.println("Number of methods:      " + metrics.dyn_method_count);
+	System.out.println("Number of basic blocks: " + metrics.dyn_bb_count);
+	System.out.println("Number of instructions: " + metrics.dyn_instr_count);
 	if (metrics.dyn_method_count == 0) {
 	    closeMetricsFileToOutput(printStreams);
 	    return;
@@ -140,21 +146,25 @@ public class SolverStatistics
 
     public static void dynInstrCount(int incr)
     {
-	MetricsData metrics = threadMapping.get(Thread.currentThread().getId());
+	MetricsData metrics = getMetrics();
 	metrics.dyn_instr_count += incr;
 	metrics.dyn_bb_count++;
     }
 
     public static void dynMethodCount(int incr)
     {
+	getMetrics().dyn_method_count++;
+    }
+
+    public static MetricsData getMetrics() {
 	Long currentThreadId = Thread.currentThread().getId();
-	if (threadMapping == null) {
-	    threadMapping = new ConcurrentHashMap<Long, MetricsData>();
+
+	MetricsData metrics = threadMapping.get(currentThreadId);
+	if (metrics == null) {
+	    metrics = new MetricsData();
+	    threadMapping.put(currentThreadId, metrics);
 	}
-	if (threadMapping.get(currentThreadId) == null) {
-	    threadMapping.put(currentThreadId, new MetricsData());
-	}
-	threadMapping.get(currentThreadId).dyn_method_count++;
+	return metrics;
     }
 
     public static void main(String argv[])
@@ -174,7 +184,8 @@ public class SolverStatistics
 	    }
 
 	} catch (NullPointerException e) {
-		printUsage();
+	    e.printStackTrace();
+	    printUsage();
 	}
 
     }
