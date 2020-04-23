@@ -34,12 +34,6 @@ public class SolverStatistics
 	int dyn_instr_count = 0;
     }
 
-    private static int dyn_method_count = 0;
-    private static int dyn_bb_count = 0;
-    private static int dyn_instr_count = 0;
-
-    private static final int MAX_THREADS = 33; // 32 + main thread
-
     // threadMapping maps a threadId to its respective local data
     private static ConcurrentHashMap<Long, MetricsData> threadMapping;
 
@@ -101,16 +95,15 @@ public class SolverStatistics
 		ClassInfo ci = new ClassInfo(in_filename);
 		for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
 		    Routine routine = (Routine) e.nextElement();
-		    if (routine.getMethodName().equals("solveSudoku")) {
-			routine.addAfter("SolverStatistics", "printDynamic", "null");
-		    } else {
-			routine.addBefore("SolverStatistics", "dynMethodCount", new Integer(1));
+		    routine.addBefore("SolverStatistics", "dynMethodCount", new Integer(1));
                     
-			for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
-			    BasicBlock bb = (BasicBlock) b.nextElement();
-			    bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
-			}
+		    for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
+			BasicBlock bb = (BasicBlock) b.nextElement();
+			bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
 		    }
+		
+		    if (routine.getMethodName().equals("solveSudoku"))
+			routine.addAfter("SolverStatistics", "printDynamic", "null");
 		}
 		//ci.addAfter("SolverStatistics", "printDynamic", "null");
 		ci.write(out_filename);
@@ -123,24 +116,20 @@ public class SolverStatistics
     {
 	List<PrintStream> printStreams = setMetricsFileToOutput();
 	
-	System.out.println("Dynamic information summary:");
-	System.out.println("Number of methods:      " + dyn_method_count);
-	System.out.println("Number of basic blocks: " + dyn_bb_count);
-	System.out.println("Number of instructions: " + dyn_instr_count);
-
+	System.out.println("Dynamic information summary for thread" + Thread.currentThread().getId());
 	MetricsData metrics = threadMapping.get(Thread.currentThread().getId());
 	System.out.println(">Number of methods:      " + metrics.dyn_method_count);
 	System.out.println(">Number of basic blocks: " + metrics.dyn_bb_count);
 	System.out.println(">Number of instructions: " + metrics.dyn_instr_count);
 	
-	if (dyn_method_count == 0) {
+	if (metrics.dyn_method_count == 0) {
 	    closeMetricsFileToOutput(printStreams);
 	    return;
 	}
 	
-	float instr_per_bb = (float) dyn_instr_count / (float) dyn_bb_count;
-	float instr_per_method = (float) dyn_instr_count / (float) dyn_method_count;
-	float bb_per_method = (float) dyn_bb_count / (float) dyn_method_count;
+	float instr_per_bb = (float) metrics.dyn_instr_count / (float) metrics.dyn_bb_count;
+	float instr_per_method = (float) metrics.dyn_instr_count / (float) metrics.dyn_method_count;
+	float bb_per_method = (float) metrics.dyn_bb_count / (float) metrics.dyn_method_count;
 	
 	System.out.println("Average number of instructions per basic block: " + instr_per_bb);
 	System.out.println("Average number of instructions per method:      " + instr_per_method);
@@ -149,16 +138,14 @@ public class SolverStatistics
 	closeMetricsFileToOutput(printStreams);
     }
 
-    public static synchronized void dynInstrCount(int incr) 
+    public static void dynInstrCount(int incr) 
     {
-	dyn_instr_count += incr;
-	dyn_bb_count++;
 	MetricsData metrics = threadMapping.get(Thread.currentThread().getId());
 	metrics.dyn_instr_count += incr;
 	metrics.dyn_bb_count++;
     }
     
-    public static synchronized void dynMethodCount(int incr) 
+    public static void dynMethodCount(int incr) 
     {
 	Long currentThreadId = Thread.currentThread().getId();
 	if (threadMapping == null) {
@@ -167,8 +154,7 @@ public class SolverStatistics
 	if (threadMapping.get(currentThreadId) == null) {
 	    threadMapping.put(currentThreadId, new MetricsData());
 	}
-	threadMapping.get(currentThreadId).dyn_instr_count++;
-	dyn_method_count++;
+	threadMapping.get(currentThreadId).dyn_method_count++;
     }
    
     
