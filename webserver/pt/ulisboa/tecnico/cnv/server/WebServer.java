@@ -18,6 +18,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
 
+//import instrumentation.SolverStatistics;
+
 public class WebServer {
 
 	private static int MAX_THREADS = 32;
@@ -127,6 +129,16 @@ public class WebServer {
 			os.close();
 
 			System.out.println("> Sent response to " + t.getRemoteAddress().toString());
+			
+			try {
+				Object[] argsPrintDynamic = {null};
+				Class.forName("SolverStatistics")
+					.getMethod("printDynamic", String.class)
+					.invoke(null, argsPrintDynamic);
+			} catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | java.lang.reflect.InvocationTargetException e) {
+				e.printStackTrace();
+			}
+			//SolverStatistics.printDynamic(null);
 		}
 	}
 }
