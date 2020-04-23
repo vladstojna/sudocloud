@@ -138,14 +138,14 @@ public class SolverStatistics
 	closeMetricsFileToOutput(printStreams);
     }
 
-    public static synchronized void dynInstrCount(int incr) 
+    public static void dynInstrCount(int incr) 
     {
 	MetricsData metrics = threadMapping.get(Thread.currentThread().getId());
 	metrics.dyn_instr_count += incr;
 	metrics.dyn_bb_count++;
     }
     
-    public static synchronized void dynMethodCount(int incr) 
+    public static void dynMethodCount(int incr) 
     {
 	Long currentThreadId = Thread.currentThread().getId();
 	if (threadMapping == null) {
