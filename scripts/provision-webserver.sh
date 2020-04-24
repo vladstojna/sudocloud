@@ -22,7 +22,7 @@ export WEBSERVER_CODE=$WEBSERVER/pt/ulisboa/tecnico/cnv/server
 export SOLVERS_CODE=$WEBSERVER/pt/ulisboa/tecnico/cnv/solver
 export INSTRUMENTED_CODE=$SOLVERS_CODE
 
-set -e
+# set -e
 
 source $TARGET_PROJECT_PATH/scripts/provision-java7.sh
 source $TARGET_PROJECT_PATH/scripts/config-bit.sh

@@ -3,7 +3,8 @@ JAVA_VERSION=$(java -version  2>&1 >/dev/null | grep "1.7.0_251" -o)
 
 if [[ ! "$JAVA_VERSION" == "1.7.0_251" ]]; then
     # install java7 version
-    sudo yum install java-1.7.0-openjdk-devel
+    sudo yum update -y
+    sudo yum install -y java-1.7.0-openjdk-devel
 
 fi
 
