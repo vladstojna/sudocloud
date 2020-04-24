@@ -66,3 +66,30 @@ help: ## Prints this message and exits
 	@perl -F':.*##\s+' -lanE '$$F[1] and say "\033[36m$$F[0]\033[0m : $$F[1]"' $(MAKEFILE_LIST) \
 		| sort \
 		| column -s ':' -t
+
+# basic compilation
+
+BASEDIR=$(shell pwd)
+BIT_BASEDIR=$(BASEDIR)/BIT
+PROJECT_BASEDIR=$(BASEDIR)/pt/ulisboa/tecnico/cnv
+
+MAIN_CLASS="pt.ulisboa.tecnico.cnv.server.WebServer"
+JAVA_OPTIONS=-XX:-UseSplitVerifier
+
+compile:
+	javac \
+		$(BIT_BASEDIR)/highBIT/*.java \
+		$(BIT_BASEDIR)/lowBIT/*.java \
+		$(PROJECT_BASEDIR)/instrumentation/*.java \
+		$(PROJECT_BASEDIR)/server/*.java \
+		$(PROJECT_BASEDIR)/solver/*.java
+
+clean:
+	rm $(BIT_BASEDIR)/highBIT/*.class \
+		$(BIT_BASEDIR)/lowBIT/*.class \
+		$(PROJECT_BASEDIR)/instrumentation/*.class \
+		$(PROJECT_BASEDIR)/server/*.class \
+		$(PROJECT_BASEDIR)/solver/*.class
+
+run: compile
+	java $(JAVA_OPTIONS) -cp "$(BASEDIR)" $(MAIN_CLASS)
