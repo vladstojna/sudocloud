@@ -109,8 +109,8 @@ public class SolverStatistics
 			bb.addBefore("SolverStatistics", "dynInstrCount", new Integer(bb.size()));
 		    }
 
-		    if (routine.getMethodName().equals("solveSudoku"))
-		        routine.addAfter("SolverStatistics", "printDynamic", "null");
+		    //if (routine.getMethodName().equals("solveSudoku"))
+		    //    routine.addAfter("SolverStatistics", "printDynamic", "null");
 		}
 		//ci.addAfter("SolverStatistics", "printDynamic", "null");
 		ci.write(out_filename);

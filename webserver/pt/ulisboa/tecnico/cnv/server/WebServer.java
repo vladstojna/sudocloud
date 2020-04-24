@@ -31,8 +31,10 @@ public class WebServer {
 		final HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
 
 
-
+		// sudoku solver endpoint
 		server.createContext("/sudoku", new MyHandler());
+		// health check endpoint
+		server.createContext("/status", new StatusHandler());
 
 		// be aware! infinite pool of threads!
 		//server.setExecutor(Executors.newCachedThreadPool());
@@ -62,6 +64,37 @@ public class WebServer {
 
         return buf.toString();
     }
+    
+    static class StatusHandler implements HttpHandler {
+		@Override
+		public void handle(final HttpExchange t) throws IOException {
+			System.out.println("> Health Check");
+			
+			// Send response to browser.
+			final Headers hdrs = t.getResponseHeaders();
+			
+            hdrs.add("Content-Type", "text/html");
+
+			hdrs.add("Access-Control-Allow-Origin", "*");
+
+            hdrs.add("Access-Control-Allow-Credentials", "true");
+			hdrs.add("Access-Control-Allow-Methods", "GET");
+			hdrs.add("Access-Control-Allow-Headers", "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers");
+
+            t.sendResponseHeaders(200, "OK".length());
+
+            final OutputStream os = t.getResponseBody();
+            OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
+            osw.write("OK");
+            osw.flush();
+            osw.close();
+
+			os.close();
+
+			System.out.println("> Sent response to " + t.getRemoteAddress().toString());
+		}
+	}
+    
 	static class MyHandler implements HttpHandler {
 		@Override
 		public void handle(final HttpExchange t) throws IOException {
