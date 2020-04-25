@@ -33,9 +33,9 @@ public class SolverStatistics
 
 	public static class MetricsData {
 		// Metrics for instrumentClassFiles()
-		int dyn_method_count = 0;
-		int dyn_bb_count = 0;
-		int dyn_instr_count = 0;
+		long dyn_method_count = 0;
+		long dyn_bb_count = 0;
+		long dyn_instr_count = 0;
 
 		public void clear() {
 			dyn_method_count = 0;
@@ -57,13 +57,14 @@ public class SolverStatistics
 		}
 	}
 
-	// threadMapping maps a threadId to its respective local data
-	private static final ThreadLocal<MetricsData> threadLocal = new ThreadLocal<MetricsData>() {
-			@Override
-			protected MetricsData initialValue() {
-				return new MetricsData();
-			}
-		};
+	private static final class ThreadLocalMetrics extends ThreadLocal<MetricsData> {
+		@Override
+		protected MetricsData initialValue() {
+			return new MetricsData();
+		}
+	}
+
+	private static final ThreadLocalMetrics threadLocal = new ThreadLocalMetrics();
 
 	private static void instrumentClassFiles(File in_dir, File out_dir){
 		String filelist[] = in_dir.list();
