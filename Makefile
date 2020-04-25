@@ -104,3 +104,7 @@ instrument: compile
 run: instrument
 	@echo "Running web server..."
 	java $(JAVA_OPTIONS) -cp "$(BASEDIR)" $(MAIN_CLASS)
+
+run-raw: compile
+	@echo "Running web server without instrumentation..."
+	java $(JAVA_OPTIONS) -cp "$(BASEDIR)" $(MAIN_CLASS)

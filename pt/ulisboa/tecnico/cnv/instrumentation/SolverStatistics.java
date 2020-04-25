@@ -28,6 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SolverStatistics
 {
+	// Get class name with package path but separated with forward slashes instead of dots
+	private static final String CLASSNAME = SolverStatistics.class.getName().replaceAll("\\.", "/");
 
 	public static class MetricsData {
 		// Metrics for instrumentClassFiles()
@@ -46,7 +48,7 @@ public class SolverStatistics
 			double instr_per_method = (double) dyn_instr_count / dyn_method_count;
 			double bb_per_method = (double) dyn_bb_count / dyn_method_count;
 
-			return "Number of methods:     " + dyn_method_count +
+			return "Number of methods:      " + dyn_method_count +
 				"\nNumber of basic blocks: " + dyn_bb_count +
 				"\nNumber of instructions: " + dyn_instr_count +
 				"\nAverage number of instructions per basic block: " + instr_per_bb +
@@ -69,11 +71,11 @@ public class SolverStatistics
 				ClassInfo ci = new ClassInfo(in_filename);
 				for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
 					Routine routine = (Routine) e.nextElement();
-					routine.addBefore(SolverStatistics.class.getSimpleName(), "dynMethodCount", Integer.valueOf(0));
+					routine.addBefore(CLASSNAME, "dynMethodCount", Integer.valueOf(0));
 
 					for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
 						BasicBlock bb = (BasicBlock) b.nextElement();
-						bb.addBefore(SolverStatistics.class.getSimpleName(), "dynInstrCount", Integer.valueOf(bb.size()));
+						bb.addBefore(CLASSNAME, "dynInstrCount", Integer.valueOf(bb.size()));
 					}
 				}
 					ci.write(out_filename);
@@ -83,37 +85,23 @@ public class SolverStatistics
 
 	public static void dynInstrCount(int incr)
 	{
-		MetricsData metrics = getMetrics();
+		MetricsData metrics = getMetrics(Thread.currentThread().getId());
 		metrics.dyn_instr_count += incr;
 		metrics.dyn_bb_count++;
 	}
 
 	public static void dynMethodCount(int incr)
 	{
-		getMetrics().dyn_method_count++;
+		getMetrics(Thread.currentThread().getId()).dyn_method_count++;
 	}
 
-	public static MetricsData getMetrics() {
-		Long currentThreadId = Thread.currentThread().getId();
-
-		MetricsData metrics = threadMapping.get(currentThreadId);
+	public static MetricsData getMetrics(long threadId) {
+		MetricsData metrics = threadMapping.get(threadId);
 		if (metrics == null) {
 			metrics = new MetricsData();
-			threadMapping.put(currentThreadId, metrics);
+			threadMapping.put(threadId, metrics);
 		}
 		return metrics;
-	}
-
-	public static MetricsData getMetricsFinal(long threadId) {
-		return threadMapping.get(Thread.currentThread().getId());
-	}
-
-	/**
-	 * Be careful to only call this when you know this thread has been added
-	 * otherwise a mighty NullPointerException shall arise
-	 */
-	public static void clearMetrics(long threadId) {
-		threadMapping.get(threadId).clear();
 	}
 
 	private static void printUsage()

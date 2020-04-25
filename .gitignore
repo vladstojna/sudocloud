@@ -19,3 +19,7 @@ BIT/**
 pt/**
 !pt/**/*.java
 !pt/**/util/*.class
+
+# ignore metrics output
+
+metrics.txt

@@ -22,14 +22,9 @@ import pt.ulisboa.tecnico.cnv.instrumentation.SolverStatistics;
 
 public class WebServer {
 
-	private static int MAX_THREADS = 32;
-
 	public static void main(final String[] args) throws Exception {
 
-		//final HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 8000), 0);
-
 		final HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
-
 
 		// sudoku solver endpoint
 		server.createContext("/sudoku", new MyHandler());
@@ -37,9 +32,7 @@ public class WebServer {
 		server.createContext("/status", new StatusHandler());
 
 		// be aware! infinite pool of threads!
-		//server.setExecutor(Executors.newCachedThreadPool());
-
-		server.setExecutor(Executors.newFixedThreadPool(MAX_THREADS));
+		server.setExecutor(Executors.newCachedThreadPool());
 
 		server.start();
 
@@ -99,20 +92,27 @@ public class WebServer {
 
 		private static final String outputFilePath = "metrics.txt";
 
-		private synchronized void printMetrics(long threadId)
+		private static SolverStatistics.MetricsData getAndPrintMetrics(String query, long threadId)
 		{
+			SolverStatistics.MetricsData metrics = SolverStatistics.getMetrics(threadId);
+
 			try(FileWriter fw = new FileWriter(outputFilePath, true);
 				BufferedWriter bw = new BufferedWriter(fw);
 				PrintWriter out = new PrintWriter(bw))
 			{
-				out.println(SolverStatistics.getMetricsFinal(threadId).toString());
+				synchronized(MyHandler.class) {
+					out.printf("%nQuery %s%nThread %d%n%s%n",
+						query, threadId, metrics.toString());
+				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+
+			return metrics;
 		}
 
-		private void clearMetrics(long threadId) {
-			SolverStatistics.clearMetrics(threadId);
+		private static void clearMetrics(SolverStatistics.MetricsData metrics) {
+			metrics.clear();
 		}
 
 		@Override
@@ -179,9 +179,7 @@ public class WebServer {
 
 			System.out.println("> Sent response to " + t.getRemoteAddress().toString());
 
-			long threadId = Thread.currentThread().getId();
-			printMetrics(threadId);
-			clearMetrics(threadId);
+			clearMetrics(getAndPrintMetrics(query, Thread.currentThread().getId()));
 		}
 	}
 }
