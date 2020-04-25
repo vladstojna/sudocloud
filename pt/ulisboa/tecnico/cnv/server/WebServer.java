@@ -94,7 +94,7 @@ public class WebServer {
 
 		private static SolverStatistics.MetricsData getAndPrintMetrics(String query, long threadId)
 		{
-			SolverStatistics.MetricsData metrics = SolverStatistics.getMetrics(threadId);
+			SolverStatistics.MetricsData metrics = SolverStatistics.getMetrics();
 
 			try(FileWriter fw = new FileWriter(outputFilePath, true);
 				BufferedWriter bw = new BufferedWriter(fw);

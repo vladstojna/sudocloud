@@ -58,7 +58,12 @@ public class SolverStatistics
 	}
 
 	// threadMapping maps a threadId to its respective local data
-	private static ConcurrentHashMap<Long, MetricsData> threadMapping = new ConcurrentHashMap<Long, MetricsData>();
+	private static final ThreadLocal<MetricsData> threadLocal = new ThreadLocal<MetricsData>() {
+			@Override
+			protected MetricsData initialValue() {
+				return new MetricsData();
+			}
+		};
 
 	private static void instrumentClassFiles(File in_dir, File out_dir){
 		String filelist[] = in_dir.list();
@@ -85,23 +90,18 @@ public class SolverStatistics
 
 	public static void dynInstrCount(int incr)
 	{
-		MetricsData metrics = getMetrics(Thread.currentThread().getId());
+		MetricsData metrics = getMetrics();
 		metrics.dyn_instr_count += incr;
 		metrics.dyn_bb_count++;
 	}
 
 	public static void dynMethodCount(int incr)
 	{
-		getMetrics(Thread.currentThread().getId()).dyn_method_count++;
+		getMetrics().dyn_method_count++;
 	}
 
-	public static MetricsData getMetrics(long threadId) {
-		MetricsData metrics = threadMapping.get(threadId);
-		if (metrics == null) {
-			metrics = new MetricsData();
-			threadMapping.put(threadId, metrics);
-		}
-		return metrics;
+	public static MetricsData getMetrics() {
+		return threadLocal.get();
 	}
 
 	private static void printUsage()
