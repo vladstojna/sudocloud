@@ -97,7 +97,7 @@ public class WebServer {
 	
 	static class MyHandler implements HttpHandler {
 
-		private static final String outputFilePath = System.getProperty("user.home") + "/metrics.txt";
+		private static final String outputFilePath = "metrics.txt";
 
 		private synchronized void printMetrics(long threadId)
 		{

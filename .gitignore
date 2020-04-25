@@ -1,0 +1,21 @@
+# VS code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
+
+# ingore all BIT files except *.java
+
+BIT/**
+!BIT/**/*.java
+
+# ignore all project files except *.java and util/*.class
+
+pt/**
+!pt/**/*.java
+!pt/**/util/*.class

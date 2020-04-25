@@ -71,25 +71,36 @@ help: ## Prints this message and exits
 
 BASEDIR=$(shell pwd)
 BIT_BASEDIR=$(BASEDIR)/BIT
-PROJECT_BASEDIR=$(BASEDIR)/pt/ulisboa/tecnico/cnv
+PROJECT_DIR=$(BASEDIR)/pt/ulisboa/tecnico/cnv
+PACKAGE=pt.ulisboa.tecnico.cnv
 
-MAIN_CLASS="pt.ulisboa.tecnico.cnv.server.WebServer"
+INST_CLASS=$(PACKAGE).instrumentation.SolverStatistics
+MAIN_CLASS=$(PACKAGE).server.WebServer
+
 JAVA_OPTIONS=-XX:-UseSplitVerifier
 
 compile:
+	@echo "Compiling project..."
 	javac \
 		$(BIT_BASEDIR)/highBIT/*.java \
 		$(BIT_BASEDIR)/lowBIT/*.java \
-		$(PROJECT_BASEDIR)/instrumentation/*.java \
-		$(PROJECT_BASEDIR)/server/*.java \
-		$(PROJECT_BASEDIR)/solver/*.java
+		$(PROJECT_DIR)/instrumentation/*.java \
+		$(PROJECT_DIR)/server/*.java \
+		$(PROJECT_DIR)/solver/*.java
 
 clean:
+	@echo "Cleaning project..."
 	rm $(BIT_BASEDIR)/highBIT/*.class \
 		$(BIT_BASEDIR)/lowBIT/*.class \
-		$(PROJECT_BASEDIR)/instrumentation/*.class \
-		$(PROJECT_BASEDIR)/server/*.class \
-		$(PROJECT_BASEDIR)/solver/*.class
+		$(PROJECT_DIR)/instrumentation/*.class \
+		$(PROJECT_DIR)/server/*.class \
+		$(PROJECT_DIR)/solver/*.class
 
-run: compile
+instrument: compile
+	@echo "Instrumenting solvers..."
+	java $(JAVA_OPTIONS) -cp "$(BASEDIR)" $(INST_CLASS) \
+		$(PROJECT_DIR)/solver $(PROJECT_DIR)/solver
+
+run: instrument
+	@echo "Running web server..."
 	java $(JAVA_OPTIONS) -cp "$(BASEDIR)" $(MAIN_CLASS)
