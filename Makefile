@@ -75,37 +75,36 @@ JFLAGS=-XX:-UseSplitVerifier
 BASEDIR=$(shell pwd)
 BIT_BASEDIR=$(BASEDIR)/BIT
 PROJECT_DIR=$(BASEDIR)/pt/ulisboa/tecnico/cnv
-TARGET=$(BASEDIR)/target
 PACKAGE=pt.ulisboa.tecnico.cnv
 
 INST_CLASS=$(PACKAGE).instrumentation.SolverStatistics
 MAIN_CLASS=$(PACKAGE).server.WebServer
 
-mkdir-target:
-	@mkdir -p $(TARGET)
-
-compile: mkdir-target ## compile project
+compile: ## compile project
 	@echo "*** Compiling project"
-	javac -d $(TARGET) \
-		$(BIT_BASEDIR)/highBIT/*.java \
+	javac $(BIT_BASEDIR)/highBIT/*.java \
 		$(BIT_BASEDIR)/lowBIT/*.java \
 		$(PROJECT_DIR)/instrumentation/*.java \
 		$(PROJECT_DIR)/server/*.java \
 		$(PROJECT_DIR)/solver/*.java
 
-clean: ## clean project
-	@echo "*** Cleaning project"
-	rm -rf $(TARGET)
+clean: ## clean project (generated class files)
+	@echo "Cleaning project..."
+	rm -f $(BIT_BASEDIR)/highBIT/*.class \
+		$(BIT_BASEDIR)/lowBIT/*.class \
+		$(PROJECT_DIR)/instrumentation/*.class \
+		$(PROJECT_DIR)/server/*.class \
+		$(PROJECT_DIR)/solver/*.class
 
 instrument: compile ## instrument solvers
 	@echo "*** Instrumenting solvers"
-	java $(JFLAGS) -cp "$(TARGET)" $(INST_CLASS) \
+	java $(JFLAGS) -cp "$(BASEDIR)" $(INST_CLASS) \
 		$(PROJECT_DIR)/solver $(PROJECT_DIR)/solver
 
 run: instrument ## run web server with instrumented solvers
 	@echo "*** Running web server"
-	java $(JFLAGS) -cp "$(TARGET)" $(MAIN_CLASS)
+	java $(JFLAGS) -cp "$(BASEDIR)" $(MAIN_CLASS)
 
 run-raw: compile ## run web server without instrumented solvers
 	@echo "*** Running web server without instrumentation"
-	java $(JFLAGS) -cp "$(TARGET)" $(MAIN_CLASS)
+	java $(JFLAGS) -cp "$(BASEDIR)" $(MAIN_CLASS)

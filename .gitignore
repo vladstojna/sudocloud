@@ -23,7 +23,3 @@ pt/**
 # ignore metrics output
 
 metrics.txt
-
-# ingore generated class files
-
-target/
