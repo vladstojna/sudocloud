@@ -90,13 +90,13 @@ public class WebServer {
 	
 	static class MyHandler implements HttpHandler {
 
-		private static final String outputFilePath = "metrics.txt";
+		private static final String OUTPUT_FILE = "metrics.txt";
 
-		private static SolverStatistics.MetricsData getAndPrintMetrics(String query, long threadId)
+		private static void printAndClearMetrics(String query, long threadId)
 		{
 			SolverStatistics.MetricsData metrics = SolverStatistics.getMetrics();
 
-			try(FileWriter fw = new FileWriter(outputFilePath, true);
+			try(FileWriter fw = new FileWriter(OUTPUT_FILE, true);
 				BufferedWriter bw = new BufferedWriter(fw);
 				PrintWriter out = new PrintWriter(bw))
 			{
@@ -106,13 +106,9 @@ public class WebServer {
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
+			} finally {
+				metrics.clear();
 			}
-
-			return metrics;
-		}
-
-		private static void clearMetrics(SolverStatistics.MetricsData metrics) {
-			metrics.clear();
 		}
 
 		@Override
@@ -179,7 +175,7 @@ public class WebServer {
 
 			System.out.println("> Sent response to " + t.getRemoteAddress().toString());
 
-			clearMetrics(getAndPrintMetrics(query, Thread.currentThread().getId()));
+			printAndClearMetrics(query, Thread.currentThread().getId());
 		}
 	}
 }
