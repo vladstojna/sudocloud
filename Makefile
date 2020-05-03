@@ -33,33 +33,30 @@ BASE_DIR=/home/ec2-user/project
 .PHONY: help webserver
 
 assert-ec2: # Confirms command is being run under an EC2 instance
-ifeq ($(USER),ec2-user)
-	@echo "------- Error: this is to be run on the EC2 instance -------"
-	exit 1
-endif
-
-assert-dev: # Confirms that the command is running on the development machine (not an EC2)
 ifneq ($(USER),ec2-user)
 	@echo "------- Error: this is to be run on the EC2 instance -------"
 	exit 1
 endif
 
-upload-code: ## uploads the code to ec2 instance
-	rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_USER_HOST):~/project
+assert-dev: # Confirms that the command is running on the development machine (not an EC2)
+ifeq ($(USER),ec2-user)
+	@echo "------- Error: this is to be run on the EC2 instance -------"
+	exit 1
+endif
 
-webserver: ## provision webserver
-ifneq ($(USER),ec2-user) # if running on dev enviornment
-	rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_USER_HOST):~/project
-	$(SSH) make webserver -f project/Makefile
+upload-code: assert-dev ## uploads the code to ec2 instance
+	@echo "*** Syncing code with ec2 instance"
+	@rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_USER_HOST):~/project
 
-else # if running on ec2
-# 	From this point on the code is only running on EC2
-	@echo $(TAG) "running code on EC2 instance"
+remote-webserver: assert-dev upload-code ## runs webserver on target ec2 instance
+	@$(SSH) make webserver -f project/Makefile
+
+webserver: assert-ec2 ## provision webserver
+	@echo "*** Deploying webserver on ec2 instance"
 	$(BASE_DIR)/scripts/provision-java7.sh
 	$(BASE_DIR)/scripts/config-bit.sh
 	$(BASE_DIR)/scripts/kill-running-webserver.sh
 	cd $(BASE_DIR); make run
-endif
 
 
 # Ignore this last part; Just for priting help messages

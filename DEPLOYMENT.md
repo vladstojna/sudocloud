@@ -16,6 +16,14 @@ Deploying
 The deployment is make though makefiles (linux's build
 system). `Makefile` is the file with these instructions.
 
+### Deploying locally
+
+```bash
+make run
+```
+
+### Deploying remotely
+
 You just need to from the root of the project:
 
 ```bash
@@ -24,7 +32,7 @@ export EC2_DNS=ec2-52-201-255-184.compute-1.amazonaws.com
 export SSH_KEY=~/.ssh/uservirtualization.pem
 
 # for deploying webserver
-make webserver
+make remote-webserver
 
 # for listing all other available commands
 make help
