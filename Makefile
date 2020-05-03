@@ -28,7 +28,7 @@ EC2_DNS?=ec2-3-80-58-62.compute-1.amazonaws.com
 USER=$(shell whoami)
 SSH_USER_HOST =  ec2-user@$(EC2_DNS)
 SSH = ssh -i $(SSH_KEY) $(SSH_USER_HOST)
-TARGET_PROJECT_PATH = /home/ec2-user/project
+BASE_DIR=/home/ec2-user/project
 
 .PHONY: help webserver
 
@@ -44,6 +44,9 @@ ifneq ($(USER),ec2-user)
 	exit 1
 endif
 
+upload-code: ## uploads the code to ec2 instance
+	rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_USER_HOST):~/project
+
 webserver: ## provision webserver
 ifneq ($(USER),ec2-user) # if running on dev enviornment
 	rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_USER_HOST):~/project
@@ -52,22 +55,21 @@ ifneq ($(USER),ec2-user) # if running on dev enviornment
 else # if running on ec2
 # 	From this point on the code is only running on EC2
 	@echo $(TAG) "running code on EC2 instance"
-	$(TARGET_PROJECT_PATH)/scripts/provision-webserver.sh
+	$(BASE_DIR)/scripts/provision-java7.sh
+	$(BASE_DIR)/scripts/config-bit.sh
+	$(BASE_DIR)/scripts/kill-running-webserver.sh
+	cd $(BASE_DIR); make run
 endif
-
-webserver-rnl: ## provision webserver on RNL machine
-	cp -r . ~/project
-	~/project/scripts/provision-webserver.sh
 
 
 # Ignore this last part; Just for priting help messages
 help: ## Prints this message and exits
 	@printf "Subcommands:\n\n"
-	@perl -F':.*##\s+' -lanE '$$F[1] and say "\033[36m$$F[0]\033[0m : $$F[1]"' $(MAKEFILE_LIST) \
+@perl -F':.*##\s+' -lanE '$$F[1] and say "\033[36m$$F[0]\033[0m : $$F[1]"' $(MAKEFILE_LIST) \
 		| sort \
-		| column -s ':' -t
+| column -s ':' -t
 
-# basic compilation
+#basic compilation
 
 JC = javac
 JFLAGS=-XX:-UseSplitVerifier
