@@ -65,9 +65,9 @@ endif
 # Ignore this last part; Just for priting help messages
 help: ## Prints this message and exits
 	@printf "Subcommands:\n\n"
-@perl -F':.*##\s+' -lanE '$$F[1] and say "\033[36m$$F[0]\033[0m : $$F[1]"' $(MAKEFILE_LIST) \
-		| sort \
-| column -s ':' -t
+	@perl -F':.*##\s+' -lanE '$$F[1] and say "\033[36m$$F[0]\033[0m : $$F[1]"' $(MAKEFILE_LIST) \
+	| sort \
+	| column -s ':' -t
 
 #basic compilation
 
