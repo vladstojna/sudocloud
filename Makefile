@@ -73,6 +73,7 @@ remote-lb: assert-dev upload-code-lb ## runs load-balancer on target EC2 instanc
 provision-lb: assert-ec2  ## provision loadbalancer
 	$(BASE_DIR)/scripts/provision-java7.sh
 	$(BASE_DIR)/scripts/kill-running-server.sh $(LB_PORT) 
+	$(BASE_DIR)/scripts/provision-aws-sdk.sh
 
 load-balancer: assert-ec2 provision-lb run-lb
 	@echo "*** Deploying Load Balancer on ec2 instance"
@@ -132,14 +133,16 @@ run-raw: compile ## run web server without instrumented solvers
 #  basic loadbalancer compilation  #
 #----------------------------------#
 LB_MAIN_CLASS=$(PACKAGE).load_balancer.LoadBalancer
+LB_SDK_DIR=$(HOME)/aws-java-sdk
+LB_CP=$(BASE_DIR):$(LB_SDK_DIR)/lib/aws-java-sdk.jar:$(LB_SDK_DIR)/third-party/lib/*
 
 compile-lb: ## compile load balancer
 	@echo "*** Compiling project"
-	javac $(BASE_DIR)/pt/ulisboa/tecnico/cnv/load_balancer/*.java
+	javac -cp $(LB_CP) $(BASE_DIR)/pt/ulisboa/tecnico/cnv/load_balancer/*.java
 
 run-lb: compile-lb ## run load-balancer
 	@echo "*** forwarding :80 -> :$(LB_PORT) (in order to run java as regular user)"
 	sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port $(LB_PORT)
 	@echo "*** Running load balancer"
-	java $(JFLAGS) -cp "$(BASE_DIR)" $(LB_MAIN_CLASS)
+	java $(JFLAGS) -cp "$(LB_CP)" $(LB_MAIN_CLASS)
 
