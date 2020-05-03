@@ -16,9 +16,9 @@ BIT/**
 
 # ignore all project files except *.java and util/*.class
 
-pt/**
 !pt/**/*.java
 !pt/**/util/*.class
+pt/**
 
 # ignore metrics output
 

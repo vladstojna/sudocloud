@@ -27,12 +27,17 @@ make run
 You just need to from the root of the project:
 
 ```bash
-# Replace this your ec2 instance and ssh keypair
-export EC2_DNS=ec2-52-201-255-184.compute-1.amazonaws.com
+# Replace this your ssh keypair
 export SSH_KEY=~/.ssh/uservirtualization.pem
 
-# for deploying webserver
+# deploying webserver (replace with you EC2_DNS)
+export EC2_DNS=ec2-52-201-255-184.compute-1.amazonaws.com
 make remote-webserver
+
+
+# deploying loadbalancer (replace with you LB_DNS)
+export LB_DNS=ec2-52-23-233-176.compute-1.amazonaws.com
+make remote-lb
 
 # for listing all other available commands
 make help
