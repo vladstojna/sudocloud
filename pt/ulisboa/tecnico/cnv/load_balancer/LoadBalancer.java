@@ -4,6 +4,8 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import java.net.URL;
+import java.net.HttpURLConnection;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -13,8 +15,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
+import java.util.Scanner;
+import java.util.Map;
+import java.util.List;
 
 public class LoadBalancer {
+
+	private static final int READ_BUFFER_SIZE = 8192;
 
 	public static void main(final String[] args) throws Exception {
 		// please note that iptables is redirecting traffic from port 80
@@ -93,30 +100,9 @@ public class LoadBalancer {
 			final String query = t.getRequestURI().getQuery();
 			System.out.println("> Query:\t" + query);
 
-			// Send response to browser.
-			final Headers hdrs = t.getResponseHeaders();
-
-			//t.sendResponseHeaders(200, responseFile.length());
-
-			///hdrs.add("Content-Type", "image/png");
-			hdrs.add("Content-Type", "application/json");
-
-			hdrs.add("Access-Control-Allow-Origin", "*");
-
-			hdrs.add("Access-Control-Allow-Credentials", "true");
-			hdrs.add("Access-Control-Allow-Methods", "POST, GET, HEAD, OPTIONS");
-			hdrs.add("Access-Control-Allow-Headers", "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers");
-
-			// FIXME replace with response length from instance
-
-			t.sendResponseHeaders(200, "OK".length());
-			final OutputStream os = t.getResponseBody();
-			OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-			osw.write("OK"); // FIXME replace with response from instance
-			osw.flush();
-			osw.close();
-
-			os.close();
+			// Forward request to instance
+			String serverAddress = "ec2-52-87-225-104.compute-1.amazonaws.com:8000";
+			Util.proxyRequest(t, serverAddress);
 
 			System.out.println("> Sent response to " + t.getRemoteAddress().toString());
 
