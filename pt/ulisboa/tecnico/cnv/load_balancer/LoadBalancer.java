@@ -15,52 +15,52 @@ import java.util.ArrayList;
 
 public class LoadBalancer {
 
-	public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
+    public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
 
-	/**
-	 * Obtains the instance that should be used for the next operation
-	 **/
-	public static Instance getNextInstance() {
-	    return findRunningWorkerInstances().get(0);
+    /**
+     * Obtains the instance that should be used for the next operation
+     **/
+    public static Instance getNextInstance() {
+	return findRunningWorkerInstances().get(0);
+    }
+
+    /**
+     * Find the worker instances
+     *
+     * They are tagged with the tag "type:worker"
+     **/
+    private static List<Instance> findRunningWorkerInstances() {
+
+	List<Instance> runningInstances = new ArrayList<Instance>();
+
+	try {
+	    //Create the Filter to use to find running instances
+	    Filter filter = new Filter("tag:type");
+	    filter.withValues("worker");
+
+	    //Create a DescribeInstancesRequest
+	    DescribeInstancesRequest request = new DescribeInstancesRequest();
+	    request.withFilters(filter);
+
+	    // Find the running instances
+	    DescribeInstancesResult response = ec2.describeInstances(request);
+
+	    for (Reservation reservation : response.getReservations()){
+		for (Instance instance : reservation.getInstances()) {
+		    runningInstances.add(instance);
+		    System.out.println("Found worker instance with id " +
+				       instance.getInstanceId());
+		}
+	    }
+
+	} catch (SdkClientException e) {
+	    e.getStackTrace();
 	}
 
-	/**
-	 * Find the worker instances
-	 *
-	 * They are tagged with the tag "type:worker"
-	 **/
-	private static List<Instance> findRunningWorkerInstances() {
-
-		List<Instance> runningInstances = new ArrayList<Instance>();
-
-		try {
-			//Create the Filter to use to find running instances
-			Filter filter = new Filter("tag:type");
-			filter.withValues("worker");
-
-			//Create a DescribeInstancesRequest
-			DescribeInstancesRequest request = new DescribeInstancesRequest();
-			request.withFilters(filter);
-
-			// Find the running instances
-			DescribeInstancesResult response = ec2.describeInstances(request);
-
-			for (Reservation reservation : response.getReservations()){
-				for (Instance instance : reservation.getInstances()) {
-					runningInstances.add(instance);
-					System.out.println("Found worker instance with id " +
-					                   instance.getInstanceId());
-				}
-			}
-
-		} catch (SdkClientException e) {
-		    e.getStackTrace();
-		}
-
-		if (runningInstances.size() == 0) {
-		    System.out.println("No running worker instance was found");
-		    System.out.println("Maybe you forgot to tag them with 'type:worker'");
-		}
-		return runningInstances;
+	if (runningInstances.size() == 0) {
+	    System.out.println("No running worker instance was found");
+	    System.out.println("Maybe you forgot to tag them with 'type:worker'");
 	}
+	return runningInstances;
+    }
 }
