@@ -1,111 +1,66 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
-import java.net.URL;
-import java.net.HttpURLConnection;
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
+import com.amazonaws.services.ec2.model.Filter;
+import com.amazonaws.services.ec2.model.Reservation;
+import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.Tag;
+import com.amazonaws.SdkClientException;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.*;
-import java.net.InetSocketAddress;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.concurrent.Executors;
-import java.util.Scanner;
-import java.util.Map;
 import java.util.List;
+import java.util.ArrayList;
 
 public class LoadBalancer {
 
-	private static final int READ_BUFFER_SIZE = 8192;
+	public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
 
-	public static void main(final String[] args) throws Exception {
-		// please note that iptables is redirecting traffic from port 80
-		// to port 8080. This is so that this webserver can run as a
-		// regular user (allowde only for ports above 1024)
-		final HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
-
-		// sudoku solver endpoint
-		server.createContext("/sudoku", new MyHandler());
-		// health check endpoint
-		server.createContext("/status", new StatusHandler());
-
-		// be aware! infinite pool of threads!
-		server.setExecutor(Executors.newCachedThreadPool());
-
-		server.start();
-
-		System.out.println(server.getAddress().toString());
+	/**
+	 * Obtains the instance that should be used for the next operation
+	 **/
+	public static Instance getNextInstance() {
+	    return findRunningWorkerInstances().get(0);
 	}
 
-	public static String parseRequestBody(InputStream is) throws IOException {
-		InputStreamReader isr =  new InputStreamReader(is,"utf-8");
-		BufferedReader br = new BufferedReader(isr);
+	/**
+	 * Find the worker instances
+	 *
+	 * They are tagged with the tag "type:worker"
+	 **/
+	private static List<Instance> findRunningWorkerInstances() {
 
-		// From now on, the right way of moving from bytes to utf-8 characters:
+		List<Instance> runningInstances = new ArrayList<Instance>();
 
-		int b;
-		StringBuilder buf = new StringBuilder(512);
-		while ((b = br.read()) != -1) {
-			buf.append((char) b);
+		try {
+			//Create the Filter to use to find running instances
+			Filter filter = new Filter("tag:type");
+			filter.withValues("worker");
 
+			//Create a DescribeInstancesRequest
+			DescribeInstancesRequest request = new DescribeInstancesRequest();
+			request.withFilters(filter);
+
+			// Find the running instances
+			DescribeInstancesResult response = ec2.describeInstances(request);
+
+			for (Reservation reservation : response.getReservations()){
+				for (Instance instance : reservation.getInstances()) {
+					runningInstances.add(instance);
+					System.out.println("Found worker instance with id " +
+					                   instance.getInstanceId());
+				}
+			}
+
+		} catch (SdkClientException e) {
+		    e.getStackTrace();
 		}
 
-		br.close();
-		isr.close();
-
-		return buf.toString();
-	}
-
-	static class StatusHandler implements HttpHandler {
-		@Override
-		public void handle(final HttpExchange t) throws IOException {
-			System.out.println("> Health Check");
-
-			// Send response to browser.
-			final Headers hdrs = t.getResponseHeaders();
-
-			hdrs.add("Content-Type", "text/html");
-
-			hdrs.add("Access-Control-Allow-Origin", "*");
-
-			hdrs.add("Access-Control-Allow-Credentials", "true");
-			hdrs.add("Access-Control-Allow-Methods", "GET");
-			hdrs.add("Access-Control-Allow-Headers", "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers");
-
-			t.sendResponseHeaders(200, "OK".length());
-
-			final OutputStream os = t.getResponseBody();
-			OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-			osw.write("OK");
-			osw.flush();
-			osw.close();
-
-			os.close();
-
-			System.out.println("> Sent response to " + t.getRemoteAddress().toString());
+		if (runningInstances.size() == 0) {
+		    System.out.println("No running worker instance was found");
+		    System.out.println("Maybe you forgot to tag them with 'type:worker'");
 		}
-	}
-
-	static class MyHandler implements HttpHandler {
-
-		@Override
-		public void handle(final HttpExchange t) throws IOException {
-
-			// Get the query.
-			final String query = t.getRequestURI().getQuery();
-			System.out.println("> Query:\t" + query);
-
-			// Forward request to instance
-			String serverAddress = "ec2-52-87-225-104.compute-1.amazonaws.com:8000";
-			Util.proxyRequest(t, serverAddress);
-
-			System.out.println("> Sent response to " + t.getRemoteAddress().toString());
-
-		}
+		return runningInstances;
 	}
 }

@@ -132,7 +132,7 @@ run-raw: compile ## run web server without instrumented solvers
 #----------------------------------#
 #  basic loadbalancer compilation  #
 #----------------------------------#
-LB_MAIN_CLASS=$(PACKAGE).load_balancer.LoadBalancer
+LB_MAIN_CLASS=$(PACKAGE).load_balancer.WebServer
 LB_SDK_DIR=$(HOME)/aws-java-sdk
 LB_CP=$(BASE_DIR):$(LB_SDK_DIR)/lib/aws-java-sdk.jar:$(LB_SDK_DIR)/third-party/lib/*
 
