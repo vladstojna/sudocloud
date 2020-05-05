@@ -73,7 +73,7 @@ remote-lb: assert-dev upload-code-lb ## runs load-balancer on target EC2 instanc
 provision-lb: assert-ec2  ## provision loadbalancer
 	$(BASE_DIR)/scripts/provision-java7.sh
 	$(BASE_DIR)/scripts/kill-running-server.sh $(LB_PORT) 
-	$(BASE_DIR)/scripts/provision-aws-sdk.sh
+	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
 
 load-balancer: assert-ec2 provision-lb run-lb
 	@echo "*** Deploying Load Balancer on ec2 instance"

@@ -23,3 +23,6 @@ pt/**
 # ignore metrics output
 
 metrics.txt
+
+# ignore sensitive AWS credentials file
+aws_credentials
