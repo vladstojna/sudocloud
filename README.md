@@ -47,6 +47,12 @@ make help
 
 ```
 
+Documentation
+-------------
+
+- **[AWS SDK javadocs](https://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html)**: bloated but has everything
+- **[AWS SDK source](https://github.com/aws/aws-sdk-java)**: if you use github's "find file" feature it might be easier than to look in the docs
+
 
 Final deployment
 ----------------
