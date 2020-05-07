@@ -19,6 +19,8 @@ import java.util.Scanner;
 import java.util.Map;
 import java.util.List;
 
+import com.amazonaws.services.ec2.model.Instance;
+
 /**
  * LoadBalancer Webserver
  **/
@@ -31,9 +33,6 @@ public class WebServer {
 	// to port 8080. This is so that this webserver can run as a
 	// regular user (allowde only for ports above 1024)
 	final HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
-
-	LoadBalancer lb = new LoadBalancer();
-	lb.start();
 
 	// sudoku solver endpoint
 	server.createContext("/sudoku", new MyHandler());
@@ -109,9 +108,19 @@ public class WebServer {
 	    Request request = new Request.RequestBuilder()
 		                         .withQuery(query).build();
 
-	    String nextInstanceAddress = LoadBalancer.getNextInstance().getPrivateIpAddress() + ":8000";
+	    // Request loadbalancer an instance to run the request on
+	    Instance instance = LoadBalancer.getWorkerInstance(request);
+	    String nextInstanceAddress = instance.getPrivateIpAddress() + ":8000";
+
 	    System.out.println("> Forwarding query to: " + nextInstanceAddress);
-	    Util.proxyRequest(t, nextInstanceAddress);
+
+	    try {
+		Util.proxyRequest(t, nextInstanceAddress);
+		LoadBalancer.finishedProcessing(request);
+	    } catch (GeneralForwarderRuntimeException e) {
+		System.out.println("Request failed");
+		System.out.println(e.getMessage());
+	    }
 
 	    System.out.println("> Sent response to user: " + t.getRemoteAddress().toString());
 

@@ -13,23 +13,31 @@ import com.amazonaws.SdkClientException;
 import java.util.List;
 import java.util.ArrayList;
 
-public class LoadBalancer extends Thread {
+public class LoadBalancer {
 
     public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
 
-    public LoadBalancer() {
-	System.out.println("Loadbalancer initialized");
-    }
+    public static List<Request> runningRequests = new ArrayList<>();
 
-    public void run() {
-	System.out.print("loadbalancer thread started");
+    private LoadBalancer() {
+	System.out.println("Loadbalancer initialized");
     }
 
     /**
      * Obtains the instance that should be used for the next operation
      **/
-    public static Instance getNextInstance() {
+    public static Instance getWorkerInstance(Request request) {
+	runningRequests.add(request);
+	System.out.println("Running requests: " + runningRequests.size());
 	return findRunningWorkerInstances().get(0);
+    }
+
+    /**
+     * Informs the loadbalancer that the request has finished processing
+     **/
+    public static void finishedProcessing(Request request) {
+	runningRequests.remove(request);
+	System.out.println("Running requests: " + runningRequests.size());
     }
 
     /**

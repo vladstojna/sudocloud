@@ -28,7 +28,9 @@ public class Util {
      * instance). For this reason the code is converting from
      * HTTPExchange to HttpUrlConnection and back.
      **/
-    public static void proxyRequest(HttpExchange t, String serverAddress) {
+    public static void proxyRequest(HttpExchange t, String serverAddress)
+	throws GeneralForwarderRuntimeException {
+
 	HttpURLConnection connection = null;
 
 	try {
@@ -53,8 +55,7 @@ public class Util {
 	    forwardStream(connection.getInputStream(), t.getResponseBody());
 
 	} catch (Exception e) {
-	    System.out.println(e.getMessage());
-	    // fixme better harndle exception
+	    throw new GeneralForwarderRuntimeException(e.getMessage());
 	} finally {
 	    if (connection != null) {
 		connection.disconnect();
