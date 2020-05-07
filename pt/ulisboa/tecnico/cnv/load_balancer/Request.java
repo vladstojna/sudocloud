@@ -29,12 +29,12 @@ public class Request {
 	this.n2 = builder.n2;
 	this.puzzleName = builder.puzzleName;
 
-	System.out.println("Built request with:");
-	System.out.println("  strategy: " + this.strategy);
-	System.out.println("  unassigned: " + this.un);
-	System.out.println("  n1: " + this.n1);
-	System.out.println("  n2: " + this.n2);
-	System.out.println("  puzzleName: " + this.puzzleName);
+	Log.i("Built request with:");
+	Log.i("  strategy: " + this.strategy);
+	Log.i("  unassigned: " + this.un);
+	Log.i("  n1: " + this.n1);
+	Log.i("  n2: " + this.n2);
+	Log.i("  puzzleName: " + this.puzzleName);
     }
 
     /**
@@ -65,7 +65,7 @@ public class Request {
 		final String[] splitParam = p.split("=");
 		String key = splitParam[0];
 		String value = splitParam[1];
-		//System.out.println(key + " : " + value);
+		//Log.i(key + " : " + value);
 
 		switch(key) {
 		case "s":
@@ -85,7 +85,7 @@ public class Request {
 		    break;
 		default:
 		    // FIXME throw exception
-		    System.out.println("query with wrong params");
+		    Log.e("query with wrong params");
 		    break;
 		}
 	    }

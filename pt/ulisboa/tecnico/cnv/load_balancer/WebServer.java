@@ -44,7 +44,7 @@ public class WebServer {
 
 	server.start();
 
-	System.out.println(server.getAddress().toString());
+	Log.i(server.getAddress().toString());
     }
 
     public static String parseRequestBody(InputStream is) throws IOException {
@@ -69,7 +69,7 @@ public class WebServer {
     static class StatusHandler implements HttpHandler {
 	@Override
 	public void handle(final HttpExchange t) throws IOException {
-	    System.out.println("> Health Check");
+	    Log.i("> Health Check");
 
 	    // Send response to browser.
 	    final Headers hdrs = t.getResponseHeaders();
@@ -92,7 +92,7 @@ public class WebServer {
 
 	    os.close();
 
-	    System.out.println("> Sent response to " + t.getRemoteAddress().toString());
+	    Log.i("> Sent response to " + t.getRemoteAddress().toString());
 	}
     }
 
@@ -103,7 +103,7 @@ public class WebServer {
 
 	    // Get the query.
 	    final String query = t.getRequestURI().getQuery();
-	    System.out.println("> Query:\t" + query);
+	    Log.i("> Query:\t" + query);
 
 	    Request request = new Request.RequestBuilder()
 		                         .withQuery(query).build();
@@ -112,17 +112,17 @@ public class WebServer {
 	    Instance instance = LoadBalancer.getWorkerInstance(request);
 	    String nextInstanceAddress = instance.getPrivateIpAddress() + ":8000";
 
-	    System.out.println("> Forwarding query to: " + nextInstanceAddress);
+	    Log.i("> Forwarding query to: " + nextInstanceAddress);
 
 	    try {
 		Util.proxyRequest(t, nextInstanceAddress);
 		LoadBalancer.finishedProcessing(request);
 	    } catch (GeneralForwarderRuntimeException e) {
-		System.out.println("Request failed");
-		System.out.println(e.getMessage());
+		Log.e("Request failed");
+		Log.e(e.getMessage());
 	    }
 
-	    System.out.println("> Sent response to user: " + t.getRemoteAddress().toString());
+	    Log.i("> Sent response to user: " + t.getRemoteAddress().toString());
 
 	}
     }

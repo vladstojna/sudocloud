@@ -20,7 +20,7 @@ public class LoadBalancer {
     public static List<Request> runningRequests = new ArrayList<>();
 
     private LoadBalancer() {
-	System.out.println("Loadbalancer initialized");
+	Log.i("Loadbalancer initialized");
     }
 
     /**
@@ -28,7 +28,7 @@ public class LoadBalancer {
      **/
     public static Instance getWorkerInstance(Request request) {
 	runningRequests.add(request);
-	System.out.println("Running requests: " + runningRequests.size());
+	Log.i("Running requests: " + runningRequests.size());
 	return findRunningWorkerInstances().get(0);
     }
 
@@ -37,7 +37,7 @@ public class LoadBalancer {
      **/
     public static void finishedProcessing(Request request) {
 	runningRequests.remove(request);
-	System.out.println("Running requests: " + runningRequests.size());
+	Log.i("Running requests: " + runningRequests.size());
     }
 
     /**
@@ -64,7 +64,7 @@ public class LoadBalancer {
 	    for (Reservation reservation : response.getReservations()){
 		for (Instance instance : reservation.getInstances()) {
 		    runningInstances.add(instance);
-		    System.out.println("Found worker instance with id " +
+		    Log.i("Found worker instance with id " +
 				       instance.getInstanceId());
 		}
 	    }
@@ -74,8 +74,8 @@ public class LoadBalancer {
 	}
 
 	if (runningInstances.size() == 0) {
-	    System.out.println("No running worker instance was found");
-	    System.out.println("Maybe you forgot to tag them with 'type:worker'");
+	    Log.i("No running worker instance was found");
+	    Log.i("Maybe you forgot to tag them with 'type:worker'");
 	}
 	return runningInstances;
     }

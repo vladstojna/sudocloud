@@ -120,7 +120,7 @@ public class Util {
 		mOutputStream.write(buffer, 0, bytesRead);
 	    }
 	} catch (IOException e) {
-	    System.out.println(e.getMessage());
+	    Log.e(e.getMessage());
 	    // FIXME better handle exception
 	} finally {
 	    mInputStream.close();
