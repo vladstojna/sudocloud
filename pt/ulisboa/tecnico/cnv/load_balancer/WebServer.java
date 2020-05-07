@@ -32,6 +32,9 @@ public class WebServer {
 	// regular user (allowde only for ports above 1024)
 	final HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
+	LoadBalancer lb = new LoadBalancer();
+	lb.start();
+
 	// sudoku solver endpoint
 	server.createContext("/sudoku", new MyHandler());
 	// health check endpoint

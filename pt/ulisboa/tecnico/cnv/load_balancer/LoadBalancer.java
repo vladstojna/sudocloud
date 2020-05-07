@@ -13,9 +13,17 @@ import com.amazonaws.SdkClientException;
 import java.util.List;
 import java.util.ArrayList;
 
-public class LoadBalancer {
+public class LoadBalancer extends Thread {
 
     public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
+
+    public LoadBalancer() {
+	System.out.println("Loadbalancer initialized");
+    }
+
+    public void run() {
+	System.out.print("loadbalancer thread started");
+    }
 
     /**
      * Obtains the instance that should be used for the next operation
