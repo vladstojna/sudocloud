@@ -103,6 +103,9 @@ public class WebServer {
 	    final String query = t.getRequestURI().getQuery();
 	    System.out.println("> Query:\t" + query);
 
+	    Request request = new Request.RequestBuilder()
+		                         .withQuery(query).build();
+
 	    String nextInstanceAddress = LoadBalancer.getNextInstance().getPrivateIpAddress() + ":8000";
 	    System.out.println("> Forwarding query to: " + nextInstanceAddress);
 	    Util.proxyRequest(t, nextInstanceAddress);
