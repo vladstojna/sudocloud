@@ -33,6 +33,7 @@ public class LoadBalancer {
      * Obtains the instance that should be used for the next operation
      **/
     public static WorkerInstanceHolder getWorkerInstance() {
+	// FIXME add logic of choice of workerInstance
 	return workerInstances.get(0);
     }
 
@@ -40,17 +41,18 @@ public class LoadBalancer {
      * Informs the loadbalancer that a request has started processing
      **/
     public static void startedProcessing(Request request) {
-	Log.i(LOG_TAG, String.format("Added request %d to list of processing requests", request.getId()));
+	Log.i(LOG_TAG, String.format("Added request '%d to list of processing requests", request.getId()));
 	runningRequests.add(request);
-	Log.i("Running requests: " + runningRequests.size());
+	Log.i(LOG_TAG, String.format("Currently running %d requests", runningRequests.size()));
     }
 
     /**
      * Informs the loadbalancer that the request has finished processing
      **/
     public static void finishedProcessing(Request request) {
+	Log.i(LOG_TAG, String.format("Added request '%d0 to list of processing requests", request.getId()));
 	runningRequests.remove(request);
-	Log.i("Running requests: " + runningRequests.size());
+	Log.i(LOG_TAG, String.format("Currently running %d requests", runningRequests.size()));
     }
 
     /**
