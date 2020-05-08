@@ -10,7 +10,7 @@ import com.sun.net.httpserver.HttpExchange;
  **/
 public class Request {
 
-    static final String LOG_TAG = Request.class.getSimpleName();
+    static String LOG_TAG = Request.class.getSimpleName();
 
     static AtomicInteger nextRequestId = new AtomicInteger(0);
 
@@ -26,9 +26,11 @@ public class Request {
     WorkerInstanceHolder assignedInstance;
     HttpExchange httpExchange; // HTTP exchange established by loadbalancer with client
 
-    private Request(RequestBuilder builder) {
+    private Request(Builder builder) {
 
 	this.requestId = nextRequestId.getAndIncrement();
+	LOG_TAG = String.format("%s %d", Request.class.getSimpleName(), requestId);
+
 	this.strategy = builder.strategy;
 	this.un = builder.un;
 	this.n1 = builder.n1;
@@ -36,13 +38,13 @@ public class Request {
 	this.puzzleName = builder.puzzleName;
 	this.httpExchange = builder.httpExchange;
 
-	Log.i("Built request with:");
-	Log.i("  strategy: " + this.strategy);
-	Log.i("  unassigned: " + this.un);
-	Log.i("  n1: " + this.n1);
-	Log.i("  n2: " + this.n2);
-	Log.i("  puzzleName: " + this.puzzleName);
-    }
+	Log.i(LOG_TAG, "Request parameters" +
+	               " | s: " + this.strategy +
+	               " | un: " + this.un +
+	               " | n1: " + this.n1 +
+	               " | n2: " + this.n2 +
+	               " | i: " + this.puzzleName);
+   }
 
     public void assignToInstance(WorkerInstanceHolder instance) {
 	this.assignedInstance = instance;
@@ -50,13 +52,13 @@ public class Request {
 
     public void process() {
 	if (assignedInstance == null) {
-	    Log.e(LOG_TAG, "Attempeted to proces request without assigned instance");
+	    Log.e(LOG_TAG, "Attempted to proces request without assigned instance");
 	    return;
 	}
 
 	String instanceAddress = assignedInstance.getSolverAddress();
 
-	Log.i("> Forwarding query to: " + instanceAddress);
+	Log.i(LOG_TAG, String.format("forwarded to instance %s", assignedInstance.getId()));
 
 	try {
 	    LoadBalancer.startedProcessing(this);
@@ -78,7 +80,9 @@ public class Request {
      *
      * Builder pattern
      **/
-    public static class RequestBuilder {
+    public static class Builder {
+
+	static final String LOG_TAG = "Request.Builder";
 
 	// Required params
 	String strategy;
@@ -89,13 +93,12 @@ public class Request {
 
 	HttpExchange httpExchange; // HTTP exchange established by loadbalancer with client
 
-	public RequestBuilder() {}
+	public Builder() {}
 
 	/**
 	 * Parses url query
 	 **/
-	public RequestBuilder parseQuery(String query) {
-	    Log.i(LOG_TAG, "parsing query");
+	public Builder parseQuery(String query) {
 
 	    // parsing url query
 	    final String[] params = query.split("&");
@@ -133,7 +136,7 @@ public class Request {
 	    return this;
 	}
 
-	public RequestBuilder withHttpExchange(HttpExchange t) {
+	public Builder withHttpExchange(HttpExchange t) {
 	    this.httpExchange = t;
 	    return this;
 	}

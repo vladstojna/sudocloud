@@ -28,4 +28,8 @@ public class WorkerInstanceHolder {
     public String getSolverAddress() {
 	return String.format("%s:%s", instance.getPrivateIpAddress(), SOLVER_PORT);
     }
+
+    public String getId() {
+	return instance.getInstanceId();
+    }
 }

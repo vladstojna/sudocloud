@@ -107,7 +107,7 @@ public class WebServer {
 	@Override
 	public void handle(final HttpExchange t) throws IOException {
 
-	    Request request = new Request.RequestBuilder()
+	    Request request = new Request.Builder()
                                          .withHttpExchange(t)
 		                         .build();
 
