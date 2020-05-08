@@ -3,11 +3,14 @@ package pt.ulisboa.tecnico.cnv.load_balancer;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
 import java.util.ArrayList;
+import com.sun.net.httpserver.HttpExchange;
 
 /**
  * Represents a request to solve a puzzle
  **/
 public class Request {
+
+    static final String LOG_TAG = Request.class.getSimpleName();
 
     static AtomicInteger nextRequestId = new AtomicInteger(0);
 
@@ -20,14 +23,18 @@ public class Request {
 
     //
     int requestId;
+    WorkerInstanceHolder assignedInstance;
+    HttpExchange httpExchange; // HTTP exchange established by loadbalancer with client
 
     private Request(RequestBuilder builder) {
+
 	this.requestId = nextRequestId.getAndIncrement();
 	this.strategy = builder.strategy;
 	this.un = builder.un;
 	this.n1 = builder.n1;
 	this.n2 = builder.n2;
 	this.puzzleName = builder.puzzleName;
+	this.httpExchange = builder.httpExchange;
 
 	Log.i("Built request with:");
 	Log.i("  strategy: " + this.strategy);
@@ -35,6 +42,35 @@ public class Request {
 	Log.i("  n1: " + this.n1);
 	Log.i("  n2: " + this.n2);
 	Log.i("  puzzleName: " + this.puzzleName);
+    }
+
+    public void assignToInstance(WorkerInstanceHolder instance) {
+	this.assignedInstance = instance;
+    }
+
+    public void process() {
+	if (assignedInstance == null) {
+	    Log.e(LOG_TAG, "Attempeted to proces request without assigned instance");
+	    return;
+	}
+
+	String instanceAddress = assignedInstance.getSolverAddress();
+
+	Log.i("> Forwarding query to: " + instanceAddress);
+
+	try {
+	    LoadBalancer.startedProcessing(this);
+	    Util.proxyRequest(httpExchange, instanceAddress);
+	    LoadBalancer.finishedProcessing(this);
+	    Log.i("> Sent response to user: " + httpExchange.getRemoteAddress().toString());
+	} catch (GeneralForwarderRuntimeException e) {
+	    Log.e("Request failed");
+	    Log.e(e.getMessage());
+	}
+    }
+
+    public int getId() {
+	return requestId;
     }
 
     /**
@@ -51,12 +87,16 @@ public class Request {
 	int n2; // number of lines
 	String puzzleName; // "i" parameter
 
+	HttpExchange httpExchange; // HTTP exchange established by loadbalancer with client
+
 	public RequestBuilder() {}
 
 	/**
 	 * Parses url query
 	 **/
-	public RequestBuilder withQuery(String query) {
+	public RequestBuilder parseQuery(String query) {
+	    Log.i(LOG_TAG, "parsing query");
+
 	    // parsing url query
 	    final String[] params = query.split("&");
 
@@ -69,19 +109,19 @@ public class Request {
 
 		switch(key) {
 		case "s":
-		    this.withStrategy(value);
+		    this.strategy = value;
 		    break;
 		case "un":
-		    this.withUnassigned(value);
+		    this.un = Integer.parseInt(value);
 		    break;
 		case "n1":
-		    this.withNColumns(value);
+		    this.n1 =  Integer.parseInt(value);
 		    break;
 		case "n2":
-		    this.withNLines(value);
+		    this.n2 =  Integer.parseInt(value);
 		    break;
 		case "i":
-		    this.withPuzzleName(value);
+		    this.puzzleName = value;
 		    break;
 		default:
 		    // FIXME throw exception
@@ -93,33 +133,14 @@ public class Request {
 	    return this;
 	}
 
-	public RequestBuilder withStrategy(String strategy) {
-	    this.strategy = strategy;
-	    return this;
-	}
-
-	public RequestBuilder withUnassigned(String un) {
-	    this.un = Integer.parseInt(un);
-	    return this;
-	}
-
-	public RequestBuilder withNColumns(String nColumns) {
-	    this.n1 = Integer.parseInt(nColumns);
-	    return this;
-	}
-
-	public RequestBuilder withNLines(String nLines) {
-	    this.n1 = Integer.parseInt(nLines);
-	    return this;
-	}
-
-	public RequestBuilder withPuzzleName(String name) {
-	    this.puzzleName = name;
+	public RequestBuilder withHttpExchange(HttpExchange t) {
+	    this.httpExchange = t;
 	    return this;
 	}
 
 	public Request build() {
 	    // FIXME verify mandatory parameters are set
+	    this.parseQuery(this.httpExchange.getRequestURI().getQuery());
 	    return new Request(this);
 	}
     }

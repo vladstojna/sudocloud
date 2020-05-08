@@ -107,29 +107,15 @@ public class WebServer {
 	@Override
 	public void handle(final HttpExchange t) throws IOException {
 
-	    // Get the query.
-	    final String query = t.getRequestURI().getQuery();
-	    Log.i("> Query:\t" + query);
-
 	    Request request = new Request.RequestBuilder()
-		                         .withQuery(query).build();
+                                         .withHttpExchange(t)
+		                         .build();
 
 	    // Request loadbalancer an instance to run the request on
-	    WorkerInstanceHolder instance = LoadBalancer.getWorkerInstance(request);
-	    String instanceAddress = instance.getSolverAddress();
+	    WorkerInstanceHolder instance = LoadBalancer.getWorkerInstance();
 
-	    Log.i("> Forwarding query to: " + instanceAddress);
-
-	    try {
-		Util.proxyRequest(t, instanceAddress);
-		LoadBalancer.finishedProcessing(request);
-	    } catch (GeneralForwarderRuntimeException e) {
-		Log.e("Request failed");
-		Log.e(e.getMessage());
-	    }
-
-	    Log.i("> Sent response to user: " + t.getRemoteAddress().toString());
-
+	    request.assignToInstance(instance);
+	    request.process();
 	}
     }
 }

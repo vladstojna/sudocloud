@@ -32,10 +32,17 @@ public class LoadBalancer {
     /**
      * Obtains the instance that should be used for the next operation
      **/
-    public static WorkerInstanceHolder getWorkerInstance(Request request) {
+    public static WorkerInstanceHolder getWorkerInstance() {
+	return workerInstances.get(0);
+    }
+
+    /**
+     * Informs the loadbalancer that a request has started processing
+     **/
+    public static void startedProcessing(Request request) {
+	Log.i(LOG_TAG, String.format("Added request %d to list of processing requests", request.getId()));
 	runningRequests.add(request);
 	Log.i("Running requests: " + runningRequests.size());
-	return workerInstances.get(0);
     }
 
     /**
