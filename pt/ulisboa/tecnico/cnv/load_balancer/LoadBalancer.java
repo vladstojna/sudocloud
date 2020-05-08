@@ -15,21 +15,27 @@ import java.util.ArrayList;
 
 public class LoadBalancer {
 
+    static final String LOG_TAG = LoadBalancer.class.getSimpleName();
+
     public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
 
     public static List<Request> runningRequests = new ArrayList<>();
+    private static List<WorkerInstanceHolder> workerInstances = new ArrayList<>();
 
-    private LoadBalancer() {
-	Log.i("Loadbalancer initialized");
+    private LoadBalancer() {}
+
+    public static void init() {
+	initRunningWorkerInstances();
+	Log.i(LOG_TAG, "Loadbalancer initialized");
     }
 
     /**
      * Obtains the instance that should be used for the next operation
      **/
-    public static Instance getWorkerInstance(Request request) {
+    public static WorkerInstanceHolder getWorkerInstance(Request request) {
 	runningRequests.add(request);
 	Log.i("Running requests: " + runningRequests.size());
-	return findRunningWorkerInstances().get(0);
+	return workerInstances.get(0);
     }
 
     /**
@@ -41,14 +47,12 @@ public class LoadBalancer {
     }
 
     /**
-     * Find the worker instances
+     * Find the worker instances and adds them to 
      *
      * They are tagged with the tag "type:worker"
      **/
-    private static List<Instance> findRunningWorkerInstances() {
-
-	List<Instance> runningInstances = new ArrayList<Instance>();
-
+    private static void initRunningWorkerInstances() {
+	Log.i(LOG_TAG, "Initial worker instance lookup");
 	try {
 	    //Create the Filter to use to find running instances
 	    Filter filter = new Filter("tag:type");
@@ -63,8 +67,8 @@ public class LoadBalancer {
 
 	    for (Reservation reservation : response.getReservations()){
 		for (Instance instance : reservation.getInstances()) {
-		    runningInstances.add(instance);
-		    Log.i("Found worker instance with id " +
+		    workerInstances.add(new WorkerInstanceHolder(instance));
+		    Log.i(LOG_TAG, "Found worker instance with id " +
 				       instance.getInstanceId());
 		}
 	    }
@@ -73,10 +77,9 @@ public class LoadBalancer {
 	    e.getStackTrace();
 	}
 
-	if (runningInstances.size() == 0) {
-	    Log.i("No running worker instance was found");
-	    Log.i("Maybe you forgot to tag them with 'type:worker'");
+	if (workerInstances.size() == 0) {
+	    Log.i(LOG_TAG, "No running worker instance was found");
+	    Log.i(LOG_TAG, "Maybe you forgot to tag them with 'type:worker'");
 	}
-	return runningInstances;
     }
 }

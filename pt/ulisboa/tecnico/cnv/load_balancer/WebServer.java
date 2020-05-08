@@ -29,6 +29,13 @@ public class WebServer {
     private static final int READ_BUFFER_SIZE = 8192;
 
     public static void main(final String[] args) throws Exception {
+	// start autoscaler thread
+	ScalerThread scaler = new ScalerThread();
+	scaler.start();
+
+	// Intialize loadbalancer
+	LoadBalancer.init();
+
 	// please note that iptables is redirecting traffic from port 80
 	// to port 8080. This is so that this webserver can run as a
 	// regular user (allowde only for ports above 1024)
@@ -41,7 +48,6 @@ public class WebServer {
 
 	// be aware! infinite pool of threads!
 	server.setExecutor(Executors.newCachedThreadPool());
-
 	server.start();
 
 	Log.i(server.getAddress().toString());
@@ -109,13 +115,13 @@ public class WebServer {
 		                         .withQuery(query).build();
 
 	    // Request loadbalancer an instance to run the request on
-	    Instance instance = LoadBalancer.getWorkerInstance(request);
-	    String nextInstanceAddress = instance.getPrivateIpAddress() + ":8000";
+	    WorkerInstanceHolder instance = LoadBalancer.getWorkerInstance(request);
+	    String instanceAddress = instance.getSolverAddress();
 
-	    Log.i("> Forwarding query to: " + nextInstanceAddress);
+	    Log.i("> Forwarding query to: " + instanceAddress);
 
 	    try {
-		Util.proxyRequest(t, nextInstanceAddress);
+		Util.proxyRequest(t, instanceAddress);
 		LoadBalancer.finishedProcessing(request);
 	    } catch (GeneralForwarderRuntimeException e) {
 		Log.e("Request failed");
