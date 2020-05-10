@@ -42,7 +42,6 @@ public class SolverStatistics
 		long dyn_store_count = 0;
 
 		long dyn_arithmetic_count = 0;
-		long dyn_logical_count = 0;
 
 		public void clear() {
 			dyn_method_count =
@@ -50,8 +49,7 @@ public class SolverStatistics
 			dyn_instr_count =
 			dyn_load_count =
 			dyn_store_count =
-			dyn_arithmetic_count =
-			dyn_logical_count = 0;
+			dyn_arithmetic_count = 0;
 		}
 
 		public String toString() {
@@ -65,7 +63,6 @@ public class SolverStatistics
 				"\nLoad instr:    " + dyn_load_count +
 				"\nStore instr:   " + dyn_store_count +
 				"\nArith instr:   " + dyn_arithmetic_count +
-				"\nLogical instr: " + dyn_logical_count +
 				"\nAvg instr per basic block:   " + instr_per_bb +
 				"\nAvg instr per method:        " + instr_per_method +
 				"\nAvg basic blocks per method: " + bb_per_method;
@@ -110,8 +107,6 @@ public class SolverStatistics
 							instr.addBefore(CLASSNAME, "dynLoadStoreCount", Integer.valueOf(1));
 						} else if (type == InstructionTable.ARITHMETIC_INSTRUCTION) {
 							instr.addBefore(CLASSNAME, "dynArithmeticCount", Integer.valueOf(0));
-						} else if (type == InstructionTable.LOGICAL_INSTRUCTION) {
-							instr.addBefore(CLASSNAME, "dynLogicalCount", Integer.valueOf(0));
 						}
 					}
 
@@ -149,10 +144,6 @@ public class SolverStatistics
 
 	public static void dynArithmeticCount(int value) {
 		getMetrics().dyn_arithmetic_count++;
-	}
-
-	public static void dynLogicalCount(int value) {
-		getMetrics().dyn_logical_count++;
 	}
 
 	public static MetricsData getMetrics() {
