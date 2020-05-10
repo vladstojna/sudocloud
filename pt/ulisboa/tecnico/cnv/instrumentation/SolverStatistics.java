@@ -20,6 +20,7 @@ package pt.ulisboa.tecnico.cnv.instrumentation;
 
 import BIT.highBIT.*;
 import java.io.*;
+import java.nio.file.Paths;
 import java.util.Enumeration;
 import java.util.Vector;
 import java.util.List;
@@ -37,10 +38,15 @@ public class SolverStatistics
 		long dyn_bb_count = 0;
 		long dyn_instr_count = 0;
 
+		long dyn_load_count = 0;
+		long dyn_store_count = 0;
+
 		public void clear() {
 			dyn_method_count = 0;
 			dyn_bb_count = 0;
 			dyn_instr_count = 0;
+			dyn_load_count = 0;
+			dyn_store_count = 0;
 		}
 
 		public String toString() {
@@ -48,12 +54,14 @@ public class SolverStatistics
 			double instr_per_method = (double) dyn_instr_count / dyn_method_count;
 			double bb_per_method = (double) dyn_bb_count / dyn_method_count;
 
-			return "Number of methods:      " + dyn_method_count +
-				"\nNumber of basic blocks: " + dyn_bb_count +
-				"\nNumber of instructions: " + dyn_instr_count +
-				"\nAverage number of instructions per basic block: " + instr_per_bb +
-				"\nAverage number of instructions per method:      " + instr_per_method +
-				"\nAverage number of basic blocks per method:      " + bb_per_method;
+			return "Methods:      " + dyn_method_count +
+				 "\nBasic blocks: " + dyn_bb_count +
+				 "\nInstructions: " + dyn_instr_count +
+				 "\nLoad instructions: " + dyn_load_count +
+				 "\nStore instructions: " + dyn_store_count +
+				 "\nAverage instructions per basic block: " + instr_per_bb +
+				 "\nAverage instructions per method:      " + instr_per_method +
+				 "\nAverage basic blocks per method:      " + bb_per_method;
 		}
 	}
 
@@ -71,34 +79,65 @@ public class SolverStatistics
 
 		for (int i = 0; i < filelist.length; i++) {
 			String filename = filelist[i];
+
 			if (filename.endsWith(".class")) {
-				String in_filename = in_dir.getAbsolutePath() + System.getProperty("file.separator") + filename;
-				String out_filename = out_dir.getAbsolutePath() + System.getProperty("file.separator") + filename;
+
+				String in_filename = Paths.get(in_dir.getAbsolutePath(), filename).toString();
+				String out_filename = Paths.get(out_dir.getAbsolutePath(), filename).toString();
+
 				ClassInfo ci = new ClassInfo(in_filename);
+
 				for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
+
 					Routine routine = (Routine) e.nextElement();
 					routine.addBefore(CLASSNAME, "dynMethodCount", Integer.valueOf(0));
 
+					for (Enumeration instrs = routine.getInstructionArray().elements(); instrs.hasMoreElements(); ) {
+
+						Instruction instr = (Instruction) instrs.nextElement();
+						int opcode = instr.getOpcode();
+						short type = InstructionTable.InstructionTypeTable[opcode];
+						if (type == InstructionTable.LOAD_INSTRUCTION) {
+							instr.addBefore(CLASSNAME, "dynLoadStoreCount", Integer.valueOf(0));
+						} else if (type == InstructionTable.STORE_INSTRUCTION) {
+							instr.addBefore(CLASSNAME, "dynLoadStoreCount", Integer.valueOf(1));
+						} else if (type == InstructionTable.ARITHMETIC_INSTRUCTION) {
+							// count arithmetic
+						} else if (type == InstructionTable.LOGICAL_INSTRUCTION) {
+							// count logical
+						}
+					}
+
 					for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
+
 						BasicBlock bb = (BasicBlock) b.nextElement();
 						bb.addBefore(CLASSNAME, "dynInstrCount", Integer.valueOf(bb.size()));
+
 					}
+
 				}
 					ci.write(out_filename);
 			}
 		}
 	}
 
-	public static void dynInstrCount(int incr)
-	{
+	public static void dynInstrCount(int incr) {
 		MetricsData metrics = getMetrics();
 		metrics.dyn_instr_count += incr;
 		metrics.dyn_bb_count++;
 	}
 
-	public static void dynMethodCount(int incr)
-	{
+	public static void dynMethodCount(int incr) {
 		getMetrics().dyn_method_count++;
+	}
+
+	public static void dynLoadStoreCount(int type) {
+		MetricsData metrics = getMetrics();
+		if (type == 0) {
+			metrics.dyn_load_count++;
+		} else {
+			metrics.dyn_store_count++;
+		}
 	}
 
 	public static MetricsData getMetrics() {
