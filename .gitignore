@@ -9,16 +9,14 @@
 # Local History for Visual Studio Code
 .history/
 
-# ingore all BIT files except *.java
+# ingore all BIT *.class files
 
-BIT/**
-!BIT/**/*.java
+BIT/**/*.class
 
 # ignore all project files except *.java and util/*.class
 
-#!pt/**/*.java
-#!pt/**/util/*.class
-#pt/**
+pt/**/*.class
+!pt/**/util/*.class
 
 # ignore metrics output
 
