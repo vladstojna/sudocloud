@@ -169,7 +169,7 @@ public class SolverStatistics
 					}
 
 				}
-					ci.write(out_filename);
+				ci.write(out_filename);
 			}
 		}
 	}
