@@ -45,15 +45,24 @@ public class SolverStatistics
 		long dyn_constant_count = 0;
 		long dyn_stack_count = 0;
 
+		long dyn_new_count = 0;
+		long dyn_newarray_count = 0;
+		long dyn_anewarray_count = 0;
+		long dyn_multianewarray_count = 0;
+
 		public void clear() {
-			dyn_method_count =
-			dyn_bb_count =
-			dyn_instr_count =
-			dyn_load_count =
-			dyn_store_count =
-			dyn_constant_count =
-			dyn_stack_count =
+			dyn_method_count = 0;
+			dyn_bb_count = 0;
+			dyn_instr_count = 0;
+			dyn_load_count = 0;
+			dyn_store_count = 0;
 			dyn_arithmetic_count = 0;
+			dyn_constant_count = 0;
+			dyn_stack_count = 0;
+			dyn_new_count = 0;
+			dyn_newarray_count = 0;
+			dyn_anewarray_count = 0;
+			dyn_multianewarray_count = 0;
 		}
 
 		public String toString() {
@@ -61,14 +70,22 @@ public class SolverStatistics
 			double instr_per_method = (double) dyn_instr_count / dyn_method_count;
 			double bb_per_method = (double) dyn_bb_count / dyn_method_count;
 
-			return "Methods:       " + dyn_method_count +
-				"\nBasic blocks:  " + dyn_bb_count +
-				"\nInstructions:  " + dyn_instr_count +
-				"\nLoad instr:    " + dyn_load_count +
-				"\nStore instr:   " + dyn_store_count +
-				"\nArith instr:   " + dyn_arithmetic_count +
-				"\nConst instr:   " + dyn_constant_count +
-				"\nStack instr:   " + dyn_stack_count +
+			long total_alloc = dyn_new_count + dyn_newarray_count +
+				dyn_anewarray_count + dyn_multianewarray_count;
+
+			return "Methods:      " + dyn_method_count +
+				"\nBasic blocks: " + dyn_bb_count +
+				"\nInstructions: " + dyn_instr_count +
+				"\nLoad instr:   " + dyn_load_count +
+				"\nStore instr:  " + dyn_store_count +
+				"\nArith instr:  " + dyn_arithmetic_count +
+				"\nConst instr:  " + dyn_constant_count +
+				"\nStack instr:  " + dyn_stack_count +
+				"\nNEW instr:           " + dyn_new_count +
+				"\nNew array instr:     " + dyn_newarray_count +
+				"\nNew ref array instr: " + dyn_anewarray_count +
+				"\nNew md array instr:  " + dyn_multianewarray_count +
+				"\nTotal alloc instr:   " + total_alloc +
 				"\nAvg instr per basic block:   " + instr_per_bb +
 				"\nAvg instr per method:        " + instr_per_method +
 				"\nAvg basic blocks per method: " + bb_per_method;
@@ -106,6 +123,11 @@ public class SolverStatistics
 
 						Instruction instr = (Instruction) instrs.nextElement();
 						int opcode = instr.getOpcode();
+
+						if (isAllocInstr(opcode)) {
+							instr.addBefore(CLASSNAME, "dynAllocCount", Integer.valueOf(opcode));
+						}
+
 						short type = InstructionTable.InstructionTypeTable[opcode];
 						if (type == InstructionTable.LOAD_INSTRUCTION) {
 							instr.addBefore(CLASSNAME, "dynLoadStoreCount", Integer.valueOf(0));
@@ -130,6 +152,31 @@ public class SolverStatistics
 				}
 					ci.write(out_filename);
 			}
+		}
+	}
+
+	public static boolean isAllocInstr(int opcode) {
+		return (opcode == InstructionTable.NEW) ||
+			(opcode==InstructionTable.newarray) ||
+			(opcode==InstructionTable.anewarray) ||
+			(opcode==InstructionTable.multianewarray);
+	}
+
+	public static void dynAllocCount(int opcode) {
+		MetricsData metrics = getMetrics();
+		switch (opcode) {
+			case InstructionTable.NEW:
+				metrics.dyn_new_count++;
+				break;
+			case InstructionTable.newarray:
+				metrics.dyn_newarray_count++;
+				break;
+			case InstructionTable.anewarray:
+				metrics.dyn_anewarray_count++;
+				break;
+			case InstructionTable.multianewarray:
+				metrics.dyn_multianewarray_count++;
+				break;
 		}
 	}
 
