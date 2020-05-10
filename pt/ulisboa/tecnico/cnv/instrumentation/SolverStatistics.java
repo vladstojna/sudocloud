@@ -42,6 +42,8 @@ public class SolverStatistics
 		long dyn_store_count = 0;
 
 		long dyn_arithmetic_count = 0;
+		long dyn_constant_count = 0;
+		long dyn_stack_count = 0;
 
 		public void clear() {
 			dyn_method_count =
@@ -49,6 +51,8 @@ public class SolverStatistics
 			dyn_instr_count =
 			dyn_load_count =
 			dyn_store_count =
+			dyn_constant_count =
+			dyn_stack_count =
 			dyn_arithmetic_count = 0;
 		}
 
@@ -63,6 +67,8 @@ public class SolverStatistics
 				"\nLoad instr:    " + dyn_load_count +
 				"\nStore instr:   " + dyn_store_count +
 				"\nArith instr:   " + dyn_arithmetic_count +
+				"\nConst instr:   " + dyn_constant_count +
+				"\nStack instr:   " + dyn_stack_count +
 				"\nAvg instr per basic block:   " + instr_per_bb +
 				"\nAvg instr per method:        " + instr_per_method +
 				"\nAvg basic blocks per method: " + bb_per_method;
@@ -107,6 +113,10 @@ public class SolverStatistics
 							instr.addBefore(CLASSNAME, "dynLoadStoreCount", Integer.valueOf(1));
 						} else if (type == InstructionTable.ARITHMETIC_INSTRUCTION) {
 							instr.addBefore(CLASSNAME, "dynArithmeticCount", Integer.valueOf(0));
+						} else if (type == InstructionTable.CONSTANT_INSTRUCTION) {
+							instr.addBefore(CLASSNAME, "dynConstantCount", Integer.valueOf(0));
+						} else if (type == InstructionTable.STACK_INSTRUCTION) {
+							instr.addBefore(CLASSNAME, "dynStackCount", Integer.valueOf(0));
 						}
 					}
 
@@ -144,6 +154,14 @@ public class SolverStatistics
 
 	public static void dynArithmeticCount(int value) {
 		getMetrics().dyn_arithmetic_count++;
+	}
+
+	public static void dynConstantCount(int value) {
+		getMetrics().dyn_constant_count++;
+	}
+
+	public static void dynStackCount(int value) {
+		getMetrics().dyn_stack_count++;
 	}
 
 	public static MetricsData getMetrics() {
