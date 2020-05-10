@@ -50,6 +50,10 @@ public class SolverStatistics
 		long dyn_anewarray_count = 0;
 		long dyn_multianewarray_count = 0;
 
+		long dyn_condbranch_count = 0;
+		long dyn_not_taken_count = 0;
+		long dyn_taken_count = 0;
+
 		public void clear() {
 			dyn_method_count = 0;
 			dyn_bb_count = 0;
@@ -63,6 +67,9 @@ public class SolverStatistics
 			dyn_newarray_count = 0;
 			dyn_anewarray_count = 0;
 			dyn_multianewarray_count = 0;
+			dyn_condbranch_count = 0;
+			dyn_not_taken_count = 0;
+			dyn_taken_count = 0;
 		}
 
 		public String toString() {
@@ -86,6 +93,9 @@ public class SolverStatistics
 				"\nNew ref array instr: " + dyn_anewarray_count +
 				"\nNew md array instr:  " + dyn_multianewarray_count +
 				"\nTotal alloc instr:   " + total_alloc +
+				"\nCond branches:           " + dyn_condbranch_count +
+				"\nCond branches taken:     " + dyn_taken_count +
+				"\nCond branches not taken: " + dyn_not_taken_count +
 				"\nAvg instr per basic block:   " + instr_per_bb +
 				"\nAvg instr per method:        " + instr_per_method +
 				"\nAvg basic blocks per method: " + bb_per_method;
@@ -118,6 +128,7 @@ public class SolverStatistics
 
 					Routine routine = (Routine) e.nextElement();
 					routine.addBefore(CLASSNAME, "dynMethodCount", Integer.valueOf(0));
+					InstructionArray instructions = routine.getInstructionArray();
 
 					for (Enumeration instrs = routine.getInstructionArray().elements(); instrs.hasMoreElements(); ) {
 
@@ -146,6 +157,14 @@ public class SolverStatistics
 
 						BasicBlock bb = (BasicBlock) b.nextElement();
 						bb.addBefore(CLASSNAME, "dynInstrCount", Integer.valueOf(bb.size()));
+
+						Instruction instr = (Instruction) instructions.elementAt(bb.getEndAddress());
+						short type = InstructionTable.InstructionTypeTable[instr.getOpcode()];
+
+						if (type == InstructionTable.CONDITIONAL_INSTRUCTION) {
+							instr.addBefore(CLASSNAME, "dynCondBranchCount", Integer.valueOf(0));
+							instr.addBefore(CLASSNAME, "dynBranchOutcome", "BranchOutcome");
+						}
 
 					}
 
@@ -209,6 +228,18 @@ public class SolverStatistics
 
 	public static void dynStackCount(int value) {
 		getMetrics().dyn_stack_count++;
+	}
+
+	public static synchronized void dynCondBranchCount(int val) {
+		getMetrics().dyn_condbranch_count++;
+	}
+
+	public static synchronized void dynBranchOutcome(int val) {
+		MetricsData metrics = getMetrics();
+		if (val == 0)
+			metrics.dyn_not_taken_count++;
+		else
+			metrics.dyn_taken_count++;
 	}
 
 	public static MetricsData getMetrics() {
