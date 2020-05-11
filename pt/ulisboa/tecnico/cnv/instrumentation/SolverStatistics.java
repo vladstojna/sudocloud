@@ -230,11 +230,11 @@ public class SolverStatistics
 		getMetrics().dyn_stack_count++;
 	}
 
-	public static synchronized void dynCondBranchCount(int val) {
+	public static void dynCondBranchCount(int val) {
 		getMetrics().dyn_condbranch_count++;
 	}
 
-	public static synchronized void dynBranchOutcome(int val) {
+	public static void dynBranchOutcome(int val) {
 		MetricsData metrics = getMetrics();
 		if (val == 0)
 			metrics.dyn_not_taken_count++;
