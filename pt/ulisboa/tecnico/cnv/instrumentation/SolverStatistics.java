@@ -20,6 +20,7 @@ package pt.ulisboa.tecnico.cnv.instrumentation;
 
 import BIT.highBIT.*;
 import java.io.*;
+import java.nio.file.Paths;
 import java.util.Enumeration;
 import java.util.Vector;
 import java.util.List;
@@ -32,28 +33,42 @@ public class SolverStatistics
 	private static final String CLASSNAME = SolverStatistics.class.getName().replaceAll("\\.", "/");
 
 	public static class MetricsData {
-		// Metrics for instrumentClassFiles()
-		long dyn_method_count = 0;
-		long dyn_bb_count = 0;
-		long dyn_instr_count = 0;
+		private long dyn_ls_count;
+		private long dyn_alloc_count;
+		private long dyn_condbranch_count;
+		private long dyn_other_instr_count;
 
 		public void clear() {
-			dyn_method_count = 0;
-			dyn_bb_count = 0;
-			dyn_instr_count = 0;
+			dyn_ls_count = 0;
+			dyn_alloc_count = 0;
+			dyn_condbranch_count = 0;
+			dyn_other_instr_count = 0;
 		}
 
-		public String toString() {
-			double instr_per_bb = (double) dyn_instr_count / dyn_bb_count;
-			double instr_per_method = (double) dyn_instr_count / dyn_method_count;
-			double bb_per_method = (double) dyn_bb_count / dyn_method_count;
+		public long getLoadStoreCount() {
+			return dyn_ls_count;
+		}
 
-			return "Number of methods:      " + dyn_method_count +
-				"\nNumber of basic blocks: " + dyn_bb_count +
-				"\nNumber of instructions: " + dyn_instr_count +
-				"\nAverage number of instructions per basic block: " + instr_per_bb +
-				"\nAverage number of instructions per method:      " + instr_per_method +
-				"\nAverage number of basic blocks per method:      " + bb_per_method;
+		public long getAllocCount() {
+			return dyn_alloc_count;
+		}
+
+		public long getConditionalCount() {
+			return dyn_condbranch_count;
+		}
+
+		public long getOtherInstructionCount() {
+			return dyn_other_instr_count;
+		}
+
+		@Override
+		public String toString() {
+
+			return "instructions:" +
+				"\n - load/store:  " + dyn_ls_count +
+				"\n - alloc:       " + dyn_alloc_count +
+				"\n - conditional: " + dyn_condbranch_count +
+				"\n - other:       " + dyn_other_instr_count;
 		}
 	}
 
@@ -71,34 +86,101 @@ public class SolverStatistics
 
 		for (int i = 0; i < filelist.length; i++) {
 			String filename = filelist[i];
+
 			if (filename.endsWith(".class")) {
-				String in_filename = in_dir.getAbsolutePath() + System.getProperty("file.separator") + filename;
-				String out_filename = out_dir.getAbsolutePath() + System.getProperty("file.separator") + filename;
+
+				String in_filename = Paths.get(in_dir.getAbsolutePath(), filename).toString();
+				String out_filename = Paths.get(out_dir.getAbsolutePath(), filename).toString();
+
 				ClassInfo ci = new ClassInfo(in_filename);
+
 				for (Enumeration e = ci.getRoutines().elements(); e.hasMoreElements(); ) {
+
 					Routine routine = (Routine) e.nextElement();
-					routine.addBefore(CLASSNAME, "dynMethodCount", Integer.valueOf(0));
+					InstructionArray instructions = routine.getInstructionArray();
 
 					for (Enumeration b = routine.getBasicBlocks().elements(); b.hasMoreElements(); ) {
+
 						BasicBlock bb = (BasicBlock) b.nextElement();
-						bb.addBefore(CLASSNAME, "dynInstrCount", Integer.valueOf(bb.size()));
+
+						int lsCount = 0;
+						int allocCount = 0;
+						int condCount = 0;
+						int otherCount = 0;
+
+						int startAddress = bb.getStartAddress();
+						int endAddress = bb.getEndAddress();
+
+						Instruction instr = (Instruction) instructions.elementAt(endAddress);
+						if (isConditionalInstr(instr)) {
+							condCount = 1;
+						}
+
+						for (int addr = startAddress; addr < endAddress; addr++) {
+							Instruction inner = (Instruction) instructions.elementAt(addr);
+							if (isAllocInstr(inner)) {
+								allocCount++;
+							} else if (isLoadStoreInstr(inner)) {
+								lsCount++;
+							}
+						}
+
+						otherCount = bb.size() - (allocCount + lsCount + condCount);
+
+						if (allocCount > 0)
+							bb.addBefore(CLASSNAME, "dynAllocCount", Integer.valueOf(allocCount));
+						if (lsCount > 0)
+							bb.addBefore(CLASSNAME, "dynLoadStoreCount", Integer.valueOf(lsCount));
+						if (condCount == 1)
+							bb.addBefore(CLASSNAME, "dynCondBranchCount", Integer.valueOf(0));
+						if (otherCount > 0)
+							bb.addBefore(CLASSNAME, "dynOtherInstrCount", Integer.valueOf(otherCount));
+
 					}
+
 				}
-					ci.write(out_filename);
+				ci.write(out_filename);
 			}
 		}
 	}
 
-	public static void dynInstrCount(int incr)
-	{
-		MetricsData metrics = getMetrics();
-		metrics.dyn_instr_count += incr;
-		metrics.dyn_bb_count++;
+	public static boolean isLoadStoreInstr(Instruction instr) {
+		int opcode = instr.getOpcode();
+		short type = InstructionTable.InstructionTypeTable[opcode];
+		return (opcode == InstructionTable.getfield) ||
+			(opcode == InstructionTable.putfield) ||
+			(type == InstructionTable.LOAD_INSTRUCTION) ||
+			(type == InstructionTable.STORE_INSTRUCTION);
+
 	}
 
-	public static void dynMethodCount(int incr)
-	{
-		getMetrics().dyn_method_count++;
+	public static boolean isAllocInstr(Instruction instr) {
+		int opcode = instr.getOpcode();
+		return (opcode == InstructionTable.NEW) ||
+			(opcode == InstructionTable.newarray) ||
+			(opcode == InstructionTable.anewarray) ||
+			(opcode == InstructionTable.multianewarray);
+	}
+
+	public static boolean isConditionalInstr(Instruction instr) {
+		short type = InstructionTable.InstructionTypeTable[instr.getOpcode()];
+		return type == InstructionTable.CONDITIONAL_INSTRUCTION;
+	}
+
+	public static void dynAllocCount(int count) {
+		getMetrics().dyn_alloc_count += count;
+	}
+
+	public static void dynLoadStoreCount(int count) {
+		getMetrics().dyn_ls_count += count;
+	}
+
+	public static void dynCondBranchCount(int count) {
+		getMetrics().dyn_condbranch_count++;
+	}
+
+	public static void dynOtherInstrCount(int count) {
+		getMetrics().dyn_other_instr_count += count;
 	}
 
 	public static MetricsData getMetrics() {
