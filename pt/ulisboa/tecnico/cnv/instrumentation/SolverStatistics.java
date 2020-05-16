@@ -132,7 +132,7 @@ public class SolverStatistics
 						if (lsCount > 0)
 							bb.addBefore(CLASSNAME, "dynLoadStoreCount", Integer.valueOf(lsCount));
 						if (condCount == 1)
-							bb.addBefore(CLASSNAME, "dynCondBranchCount", Integer.valueOf(condCount));
+							bb.addBefore(CLASSNAME, "dynCondBranchCount", Integer.valueOf(0));
 						if (otherCount > 0)
 							bb.addBefore(CLASSNAME, "dynOtherInstrCount", Integer.valueOf(otherCount));
 
