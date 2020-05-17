@@ -61,6 +61,7 @@ webserver: assert-ec2 ## provision webserver
 	$(BASE_DIR)/scripts/provision-java7.sh
 	$(BASE_DIR)/scripts/config-bit.sh
 	$(BASE_DIR)/scripts/kill-running-server.sh $(WS_PORT)
+	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
 	cd $(BASE_DIR); make run
 
 upload-code-lb: assert-dev ## uploads the code to loadbalancer instance
@@ -91,8 +92,7 @@ help: ## Prints this message and exits
 JC = javac
 JFLAGS = -XX:-UseSplitVerifier
 
-SDK_VER = 1.11.784
-SDK_DIR = $(HOME)/aws-java-sdk-$(SDK_VER)
+SDK_DIR = $(HOME)/aws-java-sdk
 
 BASEDIR = $(shell pwd)
 BIT_DIR = $(BASEDIR)/BIT
@@ -101,7 +101,7 @@ PROJECT_DIR = $(BASEDIR)/pt/ulisboa/tecnico/cnv
 INST_CLASS = pt.ulisboa.tecnico.cnv.instrumentation.SolverStatistics
 WORKER_CLASS = pt.ulisboa.tecnico.cnv.worker.WebServer
 
-CLASSPATH = $(BASEDIR):$(SDK_DIR)/lib/aws-java-sdk-$(SDK_VER).jar:$(SDK_DIR)/third-party/lib/*
+CLASSPATH = $(BASEDIR):$(SDK_DIR)/lib/aws-java-sdk.jar:$(SDK_DIR)/third-party/lib/*
 
 compile: ## compile project
 	@echo "*** Compiling project"
