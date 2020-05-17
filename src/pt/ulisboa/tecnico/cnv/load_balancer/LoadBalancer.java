@@ -64,12 +64,15 @@ public class LoadBalancer {
 	Log.i(LOG_TAG, "Initial worker instance lookup");
 	try {
 	    //Create the Filter to use to find running instances
-	    Filter filter = new Filter("tag:type");
-	    filter.withValues("worker");
+	    Filter tag_filter = new Filter("tag:type");
+	    tag_filter.withValues("worker");
+
+	    Filter status_filter = new Filter("instance-state-name")
+		.withValues("running");
 
 	    //Create a DescribeInstancesRequest
 	    DescribeInstancesRequest request = new DescribeInstancesRequest();
-	    request.withFilters(filter);
+	    request.withFilters(tag_filter, status_filter);
 
 	    // Find the running instances
 	    DescribeInstancesResult response = ec2.describeInstances(request);
