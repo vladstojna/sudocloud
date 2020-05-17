@@ -127,11 +127,11 @@ instrument: compile ## instrument solvers
 
 run: instrument ## run worker server with instrumented solvers
 	@echo "*** Running worker server"
-	java $(JFLAGS) $(WORKER_CLASS)
+	java $(JFLAGS) -cp "$(CLASSPATH)" $(WORKER_CLASS)
 
 run-raw: compile ## run worker server without instrumented solvers
 	@echo "*** Running worker server without instrumentation"
-	java $(JFLAGS) $(WORKER_CLASS)
+	java $(JFLAGS) -cp "$(CLASSPATH)" $(WORKER_CLASS)
 
 
 #----------------------------------#
