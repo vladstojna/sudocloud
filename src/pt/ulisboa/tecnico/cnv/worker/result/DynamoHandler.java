@@ -1,4 +1,4 @@
-package pt.ulisboa.tecnico.cnv.worker;
+package pt.ulisboa.tecnico.cnv.worker.result;
 
 import java.util.HashMap;
 import java.util.Map;

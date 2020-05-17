@@ -18,6 +18,8 @@ import pt.ulisboa.tecnico.cnv.instrumentation.SolverStatistics;
 import pt.ulisboa.tecnico.cnv.solver.Solver;
 import pt.ulisboa.tecnico.cnv.solver.SolverArgumentParser;
 import pt.ulisboa.tecnico.cnv.solver.SolverFactory;
+import pt.ulisboa.tecnico.cnv.worker.result.MetricsResult;
+import pt.ulisboa.tecnico.cnv.worker.result.ResultHandler;
 
 public class SudokuHandler implements HttpHandler {
 
@@ -28,7 +30,7 @@ public class SudokuHandler implements HttpHandler {
 	}
 
 	private String parseRequestBody(InputStream is) throws IOException {
-		InputStreamReader isr =  new InputStreamReader(is,"utf-8");
+		InputStreamReader isr = new InputStreamReader(is,"utf-8");
 		BufferedReader br = new BufferedReader(isr);
 
 		// From now on, the right way of moving from bytes to utf-8 characters:

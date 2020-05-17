@@ -4,6 +4,10 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 import com.sun.net.httpserver.HttpServer;
 
+import pt.ulisboa.tecnico.cnv.worker.result.DynamoHandler;
+import pt.ulisboa.tecnico.cnv.worker.result.FileHandler;
+import pt.ulisboa.tecnico.cnv.worker.result.ResultHandler;
+
 public class WebServer {
 
 	public static void main(final String[] args) throws Exception {

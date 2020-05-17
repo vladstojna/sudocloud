@@ -1,4 +1,4 @@
-package pt.ulisboa.tecnico.cnv.worker;
+package pt.ulisboa.tecnico.cnv.worker.result;
 
 public class MetricsResult {
 

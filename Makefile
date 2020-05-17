@@ -106,16 +106,12 @@ WORKER_CLASS = pt.ulisboa.tecnico.cnv.worker.WebServer
 
 CLASSPATH = $(TARGET):$(SDK_DIR)/lib/aws-java-sdk.jar:$(SDK_DIR)/third-party/lib/*:$(BASEDIR)/lib/*:
 
+sources = $(shell find $(SOURCE) -type f -name "*.java")
+
 compile: ## compile project
 	@echo "*** Compiling project"
-	mkdir -p $(TARGET)
-	javac -cp "$(CLASSPATH)" -d $(TARGET) \
-		$(SOURCE)/BIT/highBIT/*.java \
-		$(SOURCE)/BIT/lowBIT/*.java \
-		$(PROJECT_SRC)/instrumentation/*.java \
-		$(PROJECT_SRC)/worker/*.java \
-		$(PROJECT_SRC)/solver/*.java \
-		$(PROJECT_SRC)/load_balancer/*.java
+	@mkdir -p $(TARGET)
+	@javac -cp "$(CLASSPATH)" -d $(TARGET) $(sources)
 
 clean: ## clean project (generated class files)
 	@echo "Cleaning project..."
