@@ -73,7 +73,7 @@ remote-lb: assert-dev upload-code-lb ## runs load-balancer on target EC2 instanc
 
 provision-lb: assert-ec2  ## provision loadbalancer
 	$(BASE_DIR)/scripts/provision-java7.sh
-	$(BASE_DIR)/scripts/kill-running-server.sh $(LB_PORT) 
+	$(BASE_DIR)/scripts/kill-running-server.sh $(LB_PORT)
 	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
 
 load-balancer: assert-ec2 provision-lb run-lb
@@ -101,11 +101,12 @@ PROJECT_DIR = $(BASEDIR)/pt/ulisboa/tecnico/cnv
 INST_CLASS = pt.ulisboa.tecnico.cnv.instrumentation.SolverStatistics
 WORKER_CLASS = pt.ulisboa.tecnico.cnv.worker.WebServer
 
-CLASSPATH = $(BASEDIR):$(SDK_DIR)/lib/aws-java-sdk.jar:$(SDK_DIR)/third-party/lib/*
+CLASSPATH = $(SDK_DIR)/lib/aws-java-sdk.jar:$(SDK_DIR)/third-party/lib/*:$(BASEDIR)/lib/*:
 
 compile: ## compile project
 	@echo "*** Compiling project"
-	javac -cp "$(CLASSPATH)" $(BIT_DIR)/highBIT/*.java \
+	javac -cp "$(CLASSPATH)" \
+		$(BIT_DIR)/highBIT/*.java \
 		$(BIT_DIR)/lowBIT/*.java \
 		$(PROJECT_DIR)/instrumentation/*.java \
 		$(PROJECT_DIR)/worker/*.java \
@@ -150,4 +151,3 @@ run-lb: compile-lb ## run load-balancer
 	sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port $(LB_PORT)
 	@echo "*** Running load balancer"
 	java $(JFLAGS) -cp "$(LB_CP)" $(LB_MAIN_CLASS)
-
