@@ -8,15 +8,8 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
-import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
-import com.amazonaws.services.dynamodbv2.model.KeyType;
-import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.PutItemResult;
-import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
-import com.amazonaws.services.dynamodbv2.util.TableUtils;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -45,27 +38,6 @@ public class DynamoHandler implements ResultHandler {
 			.build();
 	}
 
-	private void createTableIfNotExists() {
-		CreateTableRequest createTableRequest = new CreateTableRequest()
-			.withTableName(tableName)
-			.withKeySchema(new KeySchemaElement()
-				.withAttributeName("query")
-				.withKeyType(KeyType.HASH))
-			.withAttributeDefinitions(new AttributeDefinition()
-				.withAttributeName("query")
-				.withAttributeType(ScalarAttributeType.S))
-			.withProvisionedThroughput(new ProvisionedThroughput()
-				.withReadCapacityUnits(10L)
-				.withWriteCapacityUnits(10L));
-
-		TableUtils.createTableIfNotExists(dynamoDB, createTableRequest);
-		try {
-			TableUtils.waitUntilActive(dynamoDB, tableName);
-		} catch (Exception e) {
-			throw new AmazonClientException("Table creation error", e);
-		}
-	}
-
 	private Map<String, AttributeValue> newItem(MetricsResult data) {
 		Map<String, AttributeValue> item = new HashMap<>();
 		item.put("query", new AttributeValue(data.getKey()));
@@ -77,7 +49,6 @@ public class DynamoHandler implements ResultHandler {
 	@Override
 	public void handle(MetricsResult data) {
 		try {
-			createTableIfNotExists();
 			PutItemResult result = dynamoDB.putItem(tableName, newItem(data));
 			log.info("Result: " + result);
 		} catch (AmazonServiceException ase) {
