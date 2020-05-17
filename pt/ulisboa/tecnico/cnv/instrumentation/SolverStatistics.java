@@ -34,7 +34,7 @@ public class SolverStatistics
 		private long dyn_condbranch_count;
 		private long dyn_other_instr_count;
 
-		public void clear() {
+		private void clear() {
 			dyn_ls_count = 0;
 			dyn_alloc_count = 0;
 			dyn_condbranch_count = 0;
@@ -47,7 +47,7 @@ public class SolverStatistics
 			return cost;
 		}
 
-		public long computeCost() {
+		private long computeCost() {
 			return 1000 * dyn_alloc_count +
 				5 * dyn_ls_count +
 				4 * dyn_condbranch_count +
