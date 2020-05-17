@@ -5,14 +5,11 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 
 import org.json.JSONArray;
@@ -83,7 +80,7 @@ public class SudokuHandler implements HttpHandler {
 
 		// Create solver instance from factory.
 		final Solver s = SolverFactory.getInstance().makeSolver(ap);
-	
+
 		//Solve sudoku puzzle
 		JSONArray solution = s.solveSudoku();
 

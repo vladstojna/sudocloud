@@ -86,10 +86,10 @@ public class DynamoHandler implements ResultHandler {
 				" | AWS Error Code: " + ase.getErrorCode() +
 				" | Error Type: " + ase.getErrorType() +
 				" | Request ID: " + ase.getRequestId());
-			
+
 		} catch (AmazonClientException ace) {
 			log.error("Error Message: " + ace.getMessage());
 		}
 	}
-	
+
 }
