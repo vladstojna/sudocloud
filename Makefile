@@ -71,13 +71,12 @@ upload-code-lb: assert-dev ## uploads the code to loadbalancer instance
 remote-lb: assert-dev upload-code-lb ## runs load-balancer on target EC2 instance
 	@$(SSH_LB) make load-balancer -f project/Makefile
 
-provision-lb: assert-ec2  ## provision loadbalancer
+load-balancer: assert-ec2  ## provision loadbalancer
+	@echo "*** Deploying Load Balancer on ec2 instance"
 	$(BASE_DIR)/scripts/provision-java7.sh
 	$(BASE_DIR)/scripts/kill-running-server.sh $(LB_PORT)
 	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
-
-load-balancer: assert-ec2 provision-lb run-lb
-	@echo "*** Deploying Load Balancer on ec2 instance"
+	cd $(BASE_DIR); make run-lb
 
 
 # Ignore this last part; Just for priting help messages
@@ -133,13 +132,14 @@ run-raw: compile ## run worker server without instrumented solvers
 #----------------------------------#
 #  basic loadbalancer compilation  #
 #----------------------------------#
-LB_MAIN_CLASS=$(PACKAGE).load_balancer.WebServer
+LB_MAIN_CLASS=pt.ulisboa.tecnico.cnv.load_balancer.WebServer
 LB_SDK_DIR=$(HOME)/aws-java-sdk
-LB_CP=$(BASE_DIR):$(LB_SDK_DIR)/lib/aws-java-sdk.jar:$(LB_SDK_DIR)/third-party/lib/*
+LB_CP=$(TARGET):$(LB_SDK_DIR)/lib/aws-java-sdk.jar:$(LB_SDK_DIR)/third-party/lib/*:$(BASE_DIR)/lib/*
 
 compile-lb: ## compile load balancer
 	@echo "*** Compiling project"
-	javac -cp $(LB_CP) $(BASE_DIR)/pt/ulisboa/tecnico/cnv/load_balancer/*.java
+	@mkdir -p $(TARGET)
+	javac -cp "$(LB_CP)" -d $(TARGET) $(BASE_DIR)/src/pt/ulisboa/tecnico/cnv/load_balancer/*.java
 
 run-lb: compile-lb ## run load-balancer
 	@echo "*** forwarding :80 -> :$(LB_PORT) (in order to run java as regular user)"
