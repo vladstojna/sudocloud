@@ -95,36 +95,35 @@ JFLAGS = -XX:-UseSplitVerifier
 SDK_DIR = $(HOME)/aws-java-sdk
 
 BASEDIR = $(shell pwd)
-BIT_DIR = $(BASEDIR)/BIT
-PROJECT_DIR = $(BASEDIR)/pt/ulisboa/tecnico/cnv
+SOURCE = $(BASEDIR)/src
+TARGET = $(BASEDIR)/target
+
+PROJECT_SRC = $(SOURCE)/pt/ulisboa/tecnico/cnv
+PROJECT_TARGET = $(TARGET)/pt/ulisboa/tecnico/cnv
 
 INST_CLASS = pt.ulisboa.tecnico.cnv.instrumentation.SolverStatistics
 WORKER_CLASS = pt.ulisboa.tecnico.cnv.worker.WebServer
 
-CLASSPATH = $(SDK_DIR)/lib/aws-java-sdk.jar:$(SDK_DIR)/third-party/lib/*:$(BASEDIR)/lib/*:
+CLASSPATH = $(TARGET):$(SDK_DIR)/lib/aws-java-sdk.jar:$(SDK_DIR)/third-party/lib/*:$(BASEDIR)/lib/*:
 
 compile: ## compile project
 	@echo "*** Compiling project"
-	javac -cp "$(CLASSPATH)" \
-		$(BIT_DIR)/highBIT/*.java \
-		$(BIT_DIR)/lowBIT/*.java \
-		$(PROJECT_DIR)/instrumentation/*.java \
-		$(PROJECT_DIR)/worker/*.java \
-		$(PROJECT_DIR)/solver/*.java \
-		$(PROJECT_DIR)/load_balancer/*.java
+	mkdir $(TARGET)
+	javac -cp "$(CLASSPATH)" -d $(TARGET) \
+		$(SOURCE)/BIT/highBIT/*.java \
+		$(SOURCE)/BIT/lowBIT/*.java \
+		$(PROJECT_SRC)/instrumentation/*.java \
+		$(PROJECT_SRC)/worker/*.java \
+		$(PROJECT_SRC)/solver/*.java \
+		$(PROJECT_SRC)/load_balancer/*.java
 
 clean: ## clean project (generated class files)
 	@echo "Cleaning project..."
-	$(RM) $(BIT_DIR)/highBIT/*.class \
-		$(BIT_DIR)/lowBIT/*.class \
-		$(PROJECT_DIR)/instrumentation/*.class \
-		$(PROJECT_DIR)/worker/*.class \
-		$(PROJECT_DIR)/solver/*.class \
-		$(PROJECT_DIR)/load_balancer/*.class
+	rm -rf $(TARGET)
 
 instrument: compile ## instrument solvers
 	@echo "*** Instrumenting solvers"
-	java $(JFLAGS) $(INST_CLASS) $(PROJECT_DIR)/solver $(PROJECT_DIR)/solver
+	java $(JFLAGS) -cp "$(TARGET)" $(INST_CLASS) $(PROJECT_TARGET)/solver $(PROJECT_TARGET)/solver
 
 run: instrument ## run worker server with instrumented solvers
 	@echo "*** Running worker server"
