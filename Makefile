@@ -89,44 +89,49 @@ help: ## Prints this message and exits
 
 # basic webserver compilation
 JC = javac
-JFLAGS=-XX:-UseSplitVerifier
+JFLAGS = -XX:-UseSplitVerifier
 
-BASEDIR=$(shell pwd)
-BIT_BASEDIR=$(BASEDIR)/BIT
-PROJECT_DIR=$(BASEDIR)/pt/ulisboa/tecnico/cnv
-PACKAGE=pt.ulisboa.tecnico.cnv
+SDK_VER = 1.11.784
+SDK_DIR = $(HOME)/aws-java-sdk-$(SDK_VER)
 
-INST_CLASS=$(PACKAGE).instrumentation.SolverStatistics
-MAIN_CLASS=$(PACKAGE).server.WebServer
+BASEDIR = $(shell pwd)
+BIT_DIR = $(BASEDIR)/BIT
+PROJECT_DIR = $(BASEDIR)/pt/ulisboa/tecnico/cnv
+
+INST_CLASS = pt.ulisboa.tecnico.cnv.instrumentation.SolverStatistics
+WORKER_CLASS = pt.ulisboa.tecnico.cnv.worker.WebServer
+
+CLASSPATH = $(BASEDIR):$(SDK_DIR)/lib/aws-java-sdk-$(SDK_VER).jar:$(SDK_DIR)/third-party/lib/*
 
 compile: ## compile project
 	@echo "*** Compiling project"
-	javac $(BIT_BASEDIR)/highBIT/*.java \
-		$(BIT_BASEDIR)/lowBIT/*.java \
+	javac -cp "$(CLASSPATH)" $(BIT_DIR)/highBIT/*.java \
+		$(BIT_DIR)/lowBIT/*.java \
 		$(PROJECT_DIR)/instrumentation/*.java \
-		$(PROJECT_DIR)/server/*.java \
-		$(PROJECT_DIR)/solver/*.java
+		$(PROJECT_DIR)/worker/*.java \
+		$(PROJECT_DIR)/solver/*.java \
+		$(PROJECT_DIR)/load_balancer/*.java
 
 clean: ## clean project (generated class files)
 	@echo "Cleaning project..."
-	rm -f $(BIT_BASEDIR)/highBIT/*.class \
-		$(BIT_BASEDIR)/lowBIT/*.class \
+	$(RM) $(BIT_DIR)/highBIT/*.class \
+		$(BIT_DIR)/lowBIT/*.class \
 		$(PROJECT_DIR)/instrumentation/*.class \
-		$(PROJECT_DIR)/server/*.class \
-		$(PROJECT_DIR)/solver/*.class
+		$(PROJECT_DIR)/worker/*.class \
+		$(PROJECT_DIR)/solver/*.class \
+		$(PROJECT_DIR)/load_balancer/*.class
 
 instrument: compile ## instrument solvers
 	@echo "*** Instrumenting solvers"
-	java $(JFLAGS) -cp "$(BASEDIR)" $(INST_CLASS) \
-		$(PROJECT_DIR)/solver $(PROJECT_DIR)/solver
+	java $(JFLAGS) $(INST_CLASS) $(PROJECT_DIR)/solver $(PROJECT_DIR)/solver
 
-run: instrument ## run web server with instrumented solvers
-	@echo "*** Running web server"
-	java $(JFLAGS) -cp "$(BASEDIR)" $(MAIN_CLASS)
+run: instrument ## run worker server with instrumented solvers
+	@echo "*** Running worker server"
+	java $(JFLAGS) $(WORKER_CLASS)
 
-run-raw: compile ## run web server without instrumented solvers
-	@echo "*** Running web server without instrumentation"
-	java $(JFLAGS) -cp "$(BASEDIR)" $(MAIN_CLASS)
+run-raw: compile ## run worker server without instrumented solvers
+	@echo "*** Running worker server without instrumentation"
+	java $(JFLAGS) $(WORKER_CLASS)
 
 
 #----------------------------------#
