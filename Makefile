@@ -108,7 +108,7 @@ CLASSPATH = $(TARGET):$(SDK_DIR)/lib/aws-java-sdk.jar:$(SDK_DIR)/third-party/lib
 
 compile: ## compile project
 	@echo "*** Compiling project"
-	mkdir $(TARGET)
+	mkdir -p $(TARGET)
 	javac -cp "$(CLASSPATH)" -d $(TARGET) \
 		$(SOURCE)/BIT/highBIT/*.java \
 		$(SOURCE)/BIT/lowBIT/*.java \
