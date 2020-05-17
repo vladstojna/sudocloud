@@ -22,10 +22,6 @@ import BIT.highBIT.*;
 import java.io.*;
 import java.nio.file.Paths;
 import java.util.Enumeration;
-import java.util.Vector;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class SolverStatistics
 {
@@ -45,30 +41,17 @@ public class SolverStatistics
 			dyn_other_instr_count = 0;
 		}
 
-		public long getLoadStoreCount() {
-			return dyn_ls_count;
+		public long computeCostAndClear() {
+			long cost = computeCost();
+			clear();
+			return cost;
 		}
 
-		public long getAllocCount() {
-			return dyn_alloc_count;
-		}
-
-		public long getConditionalCount() {
-			return dyn_condbranch_count;
-		}
-
-		public long getOtherInstructionCount() {
-			return dyn_other_instr_count;
-		}
-
-		@Override
-		public String toString() {
-
-			return "instructions:" +
-				"\n - load/store:  " + dyn_ls_count +
-				"\n - alloc:       " + dyn_alloc_count +
-				"\n - conditional: " + dyn_condbranch_count +
-				"\n - other:       " + dyn_other_instr_count;
+		public long computeCost() {
+			return 1000 * dyn_alloc_count +
+				5 * dyn_ls_count +
+				4 * dyn_condbranch_count +
+				3 * dyn_other_instr_count;
 		}
 	}
 
