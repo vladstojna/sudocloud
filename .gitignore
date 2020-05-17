@@ -1,22 +1,11 @@
 # VS code
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
+.vscode/
 
 # Local History for Visual Studio Code
 .history/
 
-# ingore all BIT *.class files
-
-BIT/**/*.class
-
-# ignore all project files except *.java and util/*.class
-
-pt/**/*.class
-!pt/**/util/*.class
+# ignore class files
+target/
 
 # ignore metrics output
 

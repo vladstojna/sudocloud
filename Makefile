@@ -61,6 +61,7 @@ webserver: assert-ec2 ## provision webserver
 	$(BASE_DIR)/scripts/provision-java7.sh
 	$(BASE_DIR)/scripts/config-bit.sh
 	$(BASE_DIR)/scripts/kill-running-server.sh $(WS_PORT)
+	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
 	cd $(BASE_DIR); make run
 
 upload-code-lb: assert-dev ## uploads the code to loadbalancer instance
@@ -70,13 +71,12 @@ upload-code-lb: assert-dev ## uploads the code to loadbalancer instance
 remote-lb: assert-dev upload-code-lb ## runs load-balancer on target EC2 instance
 	@$(SSH_LB) make load-balancer -f project/Makefile
 
-provision-lb: assert-ec2  ## provision loadbalancer
-	$(BASE_DIR)/scripts/provision-java7.sh
-	$(BASE_DIR)/scripts/kill-running-server.sh $(LB_PORT) 
-	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
-
-load-balancer: assert-ec2 provision-lb run-lb
+load-balancer: assert-ec2  ## provision loadbalancer
 	@echo "*** Deploying Load Balancer on ec2 instance"
+	$(BASE_DIR)/scripts/provision-java7.sh
+	$(BASE_DIR)/scripts/kill-running-server.sh $(LB_PORT)
+	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
+	cd $(BASE_DIR); make run-lb
 
 
 # Ignore this last part; Just for priting help messages
@@ -89,60 +89,60 @@ help: ## Prints this message and exits
 
 # basic webserver compilation
 JC = javac
-JFLAGS=-XX:-UseSplitVerifier
+JFLAGS = -XX:-UseSplitVerifier
 
-BASEDIR=$(shell pwd)
-BIT_BASEDIR=$(BASEDIR)/BIT
-PROJECT_DIR=$(BASEDIR)/pt/ulisboa/tecnico/cnv
-PACKAGE=pt.ulisboa.tecnico.cnv
+SDK_DIR = $(HOME)/aws-java-sdk
 
-INST_CLASS=$(PACKAGE).instrumentation.SolverStatistics
-MAIN_CLASS=$(PACKAGE).server.WebServer
+BASEDIR = $(shell pwd)
+SOURCE = $(BASEDIR)/src
+TARGET = $(BASEDIR)/target
+
+PROJECT_SRC = $(SOURCE)/pt/ulisboa/tecnico/cnv
+PROJECT_TARGET = $(TARGET)/pt/ulisboa/tecnico/cnv
+
+INST_CLASS = pt.ulisboa.tecnico.cnv.instrumentation.SolverStatistics
+WORKER_CLASS = pt.ulisboa.tecnico.cnv.worker.WebServer
+
+CLASSPATH = $(TARGET):$(SDK_DIR)/lib/aws-java-sdk.jar:$(SDK_DIR)/third-party/lib/*:$(BASEDIR)/lib/*:
+
+sources = $(shell find $(SOURCE) -type f -name "*.java")
 
 compile: ## compile project
 	@echo "*** Compiling project"
-	javac $(BIT_BASEDIR)/highBIT/*.java \
-		$(BIT_BASEDIR)/lowBIT/*.java \
-		$(PROJECT_DIR)/instrumentation/*.java \
-		$(PROJECT_DIR)/server/*.java \
-		$(PROJECT_DIR)/solver/*.java
+	@mkdir -p $(TARGET)
+	@javac -cp "$(CLASSPATH)" -d $(TARGET) $(sources)
 
 clean: ## clean project (generated class files)
 	@echo "Cleaning project..."
-	rm -f $(BIT_BASEDIR)/highBIT/*.class \
-		$(BIT_BASEDIR)/lowBIT/*.class \
-		$(PROJECT_DIR)/instrumentation/*.class \
-		$(PROJECT_DIR)/server/*.class \
-		$(PROJECT_DIR)/solver/*.class
+	rm -rf $(TARGET)
 
 instrument: compile ## instrument solvers
 	@echo "*** Instrumenting solvers"
-	java $(JFLAGS) -cp "$(BASEDIR)" $(INST_CLASS) \
-		$(PROJECT_DIR)/solver $(PROJECT_DIR)/solver
+	java $(JFLAGS) -cp "$(TARGET)" $(INST_CLASS) $(PROJECT_TARGET)/solver $(PROJECT_TARGET)/solver
 
-run: instrument ## run web server with instrumented solvers
-	@echo "*** Running web server"
-	java $(JFLAGS) -cp "$(BASEDIR)" $(MAIN_CLASS)
+run: instrument ## run worker server with instrumented solvers
+	@echo "*** Running worker server"
+	java $(JFLAGS) -cp "$(CLASSPATH)" $(WORKER_CLASS)
 
-run-raw: compile ## run web server without instrumented solvers
-	@echo "*** Running web server without instrumentation"
-	java $(JFLAGS) -cp "$(BASEDIR)" $(MAIN_CLASS)
+run-raw: compile ## run worker server without instrumented solvers
+	@echo "*** Running worker server without instrumentation"
+	java $(JFLAGS) -cp "$(CLASSPATH)" $(WORKER_CLASS)
 
 
 #----------------------------------#
 #  basic loadbalancer compilation  #
 #----------------------------------#
-LB_MAIN_CLASS=$(PACKAGE).load_balancer.WebServer
+LB_MAIN_CLASS=pt.ulisboa.tecnico.cnv.load_balancer.WebServer
 LB_SDK_DIR=$(HOME)/aws-java-sdk
-LB_CP=$(BASE_DIR):$(LB_SDK_DIR)/lib/aws-java-sdk.jar:$(LB_SDK_DIR)/third-party/lib/*
+LB_CP=$(TARGET):$(LB_SDK_DIR)/lib/aws-java-sdk.jar:$(LB_SDK_DIR)/third-party/lib/*:$(BASE_DIR)/lib/*
 
 compile-lb: ## compile load balancer
 	@echo "*** Compiling project"
-	javac -cp $(LB_CP) $(BASE_DIR)/pt/ulisboa/tecnico/cnv/load_balancer/*.java
+	@mkdir -p $(TARGET)
+	javac -cp "$(LB_CP)" -d $(TARGET) $(BASE_DIR)/src/pt/ulisboa/tecnico/cnv/load_balancer/*.java
 
 run-lb: compile-lb ## run load-balancer
 	@echo "*** forwarding :80 -> :$(LB_PORT) (in order to run java as regular user)"
 	sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port $(LB_PORT)
 	@echo "*** Running load balancer"
 	java $(JFLAGS) -cp "$(LB_CP)" $(LB_MAIN_CLASS)
-
