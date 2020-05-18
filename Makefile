@@ -61,6 +61,8 @@ webserver: assert-ec2 ## provision webserver
 	$(BASE_DIR)/scripts/provision-java7.sh
 	$(BASE_DIR)/scripts/config-bit.sh
 	$(BASE_DIR)/scripts/kill-running-server.sh $(WS_PORT)
+	sudo cp -r $(BASE_DIR)/scripts/rc.local_worker /etc/rc.d/rc.local
+	sudo chmod +x /etc/rc.d/rc.local
 	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
 	cd $(BASE_DIR); make run
 

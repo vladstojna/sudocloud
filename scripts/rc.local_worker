@@ -1,0 +1,24 @@
+#!/bin/bash
+# THIS FILE IS ADDED FOR COMPATIBILITY PURPOSES
+#
+# It is highly advisable to create own systemd services or udev rules
+# to run scripts during boot instead of using this file.
+#
+# In contrast to previous versions due to parallel execution during boot
+# this script will NOT be run after all other services.
+#
+# Please note that you must run 'chmod +x /etc/rc.d/rc.local' to ensure
+# that this script will be executed during boot.
+
+touch /var/lock/subsys/local
+
+export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/
+export JAVA_ROOT=/usr/lib/jvm/java-7-openjdk-amd64/
+export JDK_HOME=/usr/lib/jvm/java-7-openjdk-amd64/
+export JRE_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre
+export PATH=/usr/lib/jvm/java-7-openjdk-amd64/bin/:$PATH
+export SDK_HOME=/usr/lib/jvm/java-7-openjdk-amd64/
+export _JAVA_OPTIONS="-XX:-UseSplitVerifier "$_JAVA_OPTIONS
+export CLASSPATH=/home/ec2-user/project/target
+
+su - ec2-user -c "cd /home/ec2-user/project; make run"
