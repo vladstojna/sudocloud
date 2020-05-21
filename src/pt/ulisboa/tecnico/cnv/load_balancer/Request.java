@@ -1,8 +1,8 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.sun.net.httpserver.HttpExchange;
 
 /**

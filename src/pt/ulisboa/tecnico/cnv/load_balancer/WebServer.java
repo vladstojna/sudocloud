@@ -1,25 +1,9 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import java.net.URL;
-import java.net.HttpURLConnection;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.*;
 import java.net.InetSocketAddress;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.concurrent.Executors;
-import java.util.Scanner;
-import java.util.Map;
-import java.util.List;
-
-import com.amazonaws.services.ec2.model.Instance;
 
 /**
  * LoadBalancer Webserver

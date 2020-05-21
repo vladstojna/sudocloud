@@ -2,24 +2,13 @@ package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
-import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.Reservation;
-import com.amazonaws.services.ec2.model.RunInstancesRequest;
-import com.amazonaws.services.ec2.model.RunInstancesResult;
-import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
 import com.amazonaws.services.ec2.model.InstanceType;
+import com.amazonaws.services.ec2.model.ResourceType;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.amazonaws.services.ec2.model.Tag;
-import com.amazonaws.services.ec2.model.ResourceType;
 import com.amazonaws.services.ec2.model.TagSpecification;
-import com.amazonaws.services.ec2.model.CreateTagsRequest;
-import com.amazonaws.services.ec2.model.CreateTagsResult;
-import com.amazonaws.client.builder.AwsClientBuilder;
-
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.auth.profile.ProfilesConfigFile;
 
 /**
  * Autoscaler component. Runs in a background thread

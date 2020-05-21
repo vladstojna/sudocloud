@@ -1,17 +1,16 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.amazonaws.SdkClientException;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Filter;
-import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.Tag;
-import com.amazonaws.SdkClientException;
-
-import java.util.List;
-import java.util.ArrayList;
+import com.amazonaws.services.ec2.model.Reservation;
 
 public class LoadBalancer {
 
