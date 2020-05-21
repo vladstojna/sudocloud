@@ -30,58 +30,59 @@ import com.amazonaws.auth.profile.ProfilesConfigFile;
  *
  **/
 public class ScalerThread extends Thread {
-    static final String LOG_TAG = ScalerThread.class.getSimpleName();
-    static final String WORKER_AMI_ID = "ami-004f6abe9e4e405ad";
-    static final String SECURITY_GROUP = "CNV-ssh+http";
-    static final String EC2_REGION = "us-east-1";
+	static final String LOG_TAG = ScalerThread.class.getSimpleName();
+	static final String WORKER_AMI_ID = "ami-004f6abe9e4e405ad";
+	static final String SECURITY_GROUP = "CNV-ssh+http";
+	static final String EC2_REGION = "us-east-1";
 
-    private AmazonEC2 ec2;
+	private AmazonEC2 ec2;
 
-    private LoadBalancer lb;
+	private LoadBalancer lb;
 
-    public ScalerThread(LoadBalancer lb) {
-	this.lb = lb;
-	ec2 = AmazonEC2ClientBuilder
-	    .standard()
-	    .withRegion(EC2_REGION)
-	    .build();
-    }
+	public ScalerThread(LoadBalancer lb) {
+		this.lb = lb;
+		ec2 = AmazonEC2ClientBuilder
+			.standard()
+			.withRegion(EC2_REGION)
+			.build();
+		}
 
-    public void run() {
-	Log.i(LOG_TAG, "started autoscaler in background thread");
-	//startWorkerInstance();
-    }
+	public void run() {
+		Log.i(LOG_TAG, "started autoscaler in background thread");
+		//startWorkerInstance();
+	}
 
-    /**
-     * Currently broken because of lack of permissions
-     **/
-    public void startWorkerInstance() {
-	Log.i(LOG_TAG, "Starting new worker instance with name");
+	/**
+	 * Currently broken because of lack of permissions
+	 **/
+	public void startWorkerInstance() {
+		Log.i(LOG_TAG, "Starting new worker instance with name");
 
-	Tag worker_tag = new Tag()
-	    .withKey("type")
-	    .withValue("worker");
+		Tag worker_tag = new Tag()
+			.withKey("type")
+			.withValue("worker");
 
-	TagSpecification worker_tag_spec = new TagSpecification()
-	    .withTags(worker_tag)
-	    .withResourceType(ResourceType.Instance);
+		TagSpecification worker_tag_spec = new TagSpecification()
+			.withTags(worker_tag)
+			.withResourceType(ResourceType.Instance);
 
-	RunInstancesRequest run_request = new RunInstancesRequest()
-	    .withImageId(WORKER_AMI_ID)
-	    .withInstanceType(InstanceType.T1Micro)
-	    .withMaxCount(1)
-	    .withMinCount(1)
-	    .withSecurityGroups(SECURITY_GROUP)
-	    .withMonitoring(true)
-	    .withTagSpecifications(worker_tag_spec);
+		RunInstancesRequest run_request = new RunInstancesRequest()
+			.withImageId(WORKER_AMI_ID)
+			.withInstanceType(InstanceType.T1Micro)
+			.withMaxCount(1)
+			.withMinCount(1)
+			.withSecurityGroups(SECURITY_GROUP)
+			.withMonitoring(true)
+			.withTagSpecifications(worker_tag_spec);
 
-	RunInstancesResult run_response = ec2.runInstances(run_request);
+		RunInstancesResult run_response = ec2.runInstances(run_request);
 
-	Instance instance = run_response.getReservation().getInstances().get(0);
-	String reservation_id = instance.getInstanceId();
+		Instance instance = run_response.getReservation().getInstances().get(0);
+		String reservation_id = instance.getInstanceId();
 
-	this.lb.addInstance(new WorkerInstanceHolder(instance));
+		this.lb.addInstance(new WorkerInstanceHolder(instance));
 
-	Log.i(LOG_TAG, String.format("Successfully started EC2 instance %s based on AMI %s", reservation_id, WORKER_AMI_ID));
-    }
+		Log.i(LOG_TAG, String.format("Successfully started EC2 instance %s based on AMI %s", reservation_id, WORKER_AMI_ID));
+	}
+
 }
