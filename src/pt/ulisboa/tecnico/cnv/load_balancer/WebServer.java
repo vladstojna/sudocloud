@@ -28,7 +28,7 @@ public class WebServer {
 
     private static final int READ_BUFFER_SIZE = 8192;
 
-    private static LoadBalancer lb;
+    public static LoadBalancer lb;
 
     public static void main(final String[] args) throws Exception {
 	// Intialize loadbalancer
@@ -44,9 +44,9 @@ public class WebServer {
 	final HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
 	// sudoku solver endpoint
-	server.createContext("/sudoku", new MyHandler());
+	server.createContext("/sudoku", new WebServerSudokuHandler());
 	// health check endpoint
-	server.createContext("/status", new StatusHandler());
+	server.createContext("/status", new WebServerStatusHandler());
 
 	// be aware! infinite pool of threads!
 	server.setExecutor(Executors.newCachedThreadPool());
@@ -55,51 +55,4 @@ public class WebServer {
 	Log.i(server.getAddress().toString());
     }
 
-    static class StatusHandler implements HttpHandler {
-	@Override
-	public void handle(final HttpExchange t) throws IOException {
-	    Log.i("> Health Check");
-
-	    // Send response to browser.
-	    final Headers hdrs = t.getResponseHeaders();
-
-	    hdrs.add("Content-Type", "text/html");
-
-	    hdrs.add("Access-Control-Allow-Origin", "*");
-
-	    hdrs.add("Access-Control-Allow-Credentials", "true");
-	    hdrs.add("Access-Control-Allow-Methods", "GET");
-	    hdrs.add("Access-Control-Allow-Headers", "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers");
-
-	    t.sendResponseHeaders(200, "OK".length());
-
-	    final OutputStream os = t.getResponseBody();
-	    OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-	    osw.write("OK");
-	    osw.flush();
-	    osw.close();
-
-	    os.close();
-
-	    Log.i("> Sent response to " + t.getRemoteAddress().toString());
-	}
-    }
-
-    static class MyHandler implements HttpHandler {
-
-	@Override
-	public void handle(final HttpExchange t) throws IOException {
-
-	    Request request = new Request.Builder()
-	                                 .withHttpExchange(t)
-	                                 .withCallback(WebServer.lb)
-	                                 .build();
-
-	    // Request loadbalancer an instance to run the request on
-	    WorkerInstanceHolder instance = WebServer.lb.getWorkerInstance();
-
-	    request.assignToInstance(instance);
-	    request.process();
-	}
-    }
 }
