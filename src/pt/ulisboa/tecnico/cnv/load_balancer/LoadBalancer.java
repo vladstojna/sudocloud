@@ -19,6 +19,7 @@ public class LoadBalancer {
 
     public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
 
+    // FIXME improve datastructure
     public static List<Request> runningRequests = new ArrayList<>();
     private static List<WorkerInstanceHolder> workerInstances = new ArrayList<>();
 
@@ -93,5 +94,10 @@ public class LoadBalancer {
 	    Log.i(LOG_TAG, "No running worker instance was found");
 	    Log.i(LOG_TAG, "Maybe you forgot to tag them with 'type:worker'");
 	}
+    }
+
+
+    static void addInstance(WorkerInstanceHolder instance) {
+	workerInstances.add(instance);
     }
 }
