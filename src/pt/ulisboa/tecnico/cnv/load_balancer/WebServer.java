@@ -55,25 +55,6 @@ public class WebServer {
 	Log.i(server.getAddress().toString());
     }
 
-    public static String parseRequestBody(InputStream is) throws IOException {
-	InputStreamReader isr =  new InputStreamReader(is,"utf-8");
-	BufferedReader br = new BufferedReader(isr);
-
-	// From now on, the right way of moving from bytes to utf-8 characters:
-
-	int b;
-	StringBuilder buf = new StringBuilder(512);
-	while ((b = br.read()) != -1) {
-	    buf.append((char) b);
-
-	}
-
-	br.close();
-	isr.close();
-
-	return buf.toString();
-    }
-
     static class StatusHandler implements HttpHandler {
 	@Override
 	public void handle(final HttpExchange t) throws IOException {
