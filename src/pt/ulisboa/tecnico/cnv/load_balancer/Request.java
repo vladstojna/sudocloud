@@ -25,6 +25,7 @@ public class Request {
     int requestId;
     WorkerInstanceHolder assignedInstance;
     HttpExchange httpExchange; // HTTP exchange established by loadbalancer with client
+    LoadBalancer lb;
 
     private Request(Builder builder) {
 
@@ -37,6 +38,7 @@ public class Request {
 	this.n2 = builder.n2;
 	this.puzzleName = builder.puzzleName;
 	this.httpExchange = builder.httpExchange;
+	this.lb = builder.lb;
 
 	Log.i(LOG_TAG, "Request parameters" +
 	               " | s: " + this.strategy +
@@ -61,9 +63,9 @@ public class Request {
 	Log.i(LOG_TAG, String.format("forwarded to instance %s", assignedInstance.getId()));
 
 	try {
-	    LoadBalancer.startedProcessing(this);
+	    this.lb.startedProcessing(this);
 	    Util.proxyRequest(httpExchange, instanceAddress);
-	    LoadBalancer.finishedProcessing(this);
+	    this.lb.finishedProcessing(this);
 	    Log.i("> Sent response to user: " + httpExchange.getRemoteAddress().toString());
 	} catch (GeneralForwarderRuntimeException e) {
 	    Log.e("Request failed");
@@ -92,6 +94,7 @@ public class Request {
 	String puzzleName; // "i" parameter
 
 	HttpExchange httpExchange; // HTTP exchange established by loadbalancer with client
+	LoadBalancer lb; // callback reference
 
 	public Builder() {}
 
@@ -138,6 +141,11 @@ public class Request {
 
 	public Builder withHttpExchange(HttpExchange t) {
 	    this.httpExchange = t;
+	    return this;
+	}
+
+	public Builder withCallback(LoadBalancer lb) {
+	    this.lb = lb;
 	    return this;
 	}
 

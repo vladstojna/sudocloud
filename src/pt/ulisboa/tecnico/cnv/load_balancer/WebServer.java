@@ -28,13 +28,15 @@ public class WebServer {
 
     private static final int READ_BUFFER_SIZE = 8192;
 
-    public static void main(final String[] args) throws Exception {
-	// start autoscaler thread
-	ScalerThread scaler = new ScalerThread();
-	scaler.start();
+    private static LoadBalancer lb;
 
+    public static void main(final String[] args) throws Exception {
 	// Intialize loadbalancer
-	LoadBalancer.init();
+	WebServer.lb = new LoadBalancer();
+
+	// start autoscaler thread
+	ScalerThread scaler = new ScalerThread(WebServer.lb);
+	scaler.start();
 
 	// please note that iptables is redirecting traffic from port 80
 	// to port 8080. This is so that this webserver can run as a
@@ -108,11 +110,12 @@ public class WebServer {
 	public void handle(final HttpExchange t) throws IOException {
 
 	    Request request = new Request.Builder()
-                                         .withHttpExchange(t)
-		                         .build();
+	                                 .withHttpExchange(t)
+	                                 .withCallback(WebServer.lb)
+	                                 .build();
 
 	    // Request loadbalancer an instance to run the request on
-	    WorkerInstanceHolder instance = LoadBalancer.getWorkerInstance();
+	    WorkerInstanceHolder instance = WebServer.lb.getWorkerInstance();
 
 	    request.assignToInstance(instance);
 	    request.process();
