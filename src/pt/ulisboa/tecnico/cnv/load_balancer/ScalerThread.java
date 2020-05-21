@@ -31,14 +31,16 @@ import com.amazonaws.auth.profile.ProfilesConfigFile;
  **/
 public class ScalerThread extends Thread {
     static final String LOG_TAG = ScalerThread.class.getSimpleName();
-    static final String WORKER_AMI_ID = "ami-0cc4aace9410e0eb3";
+    static final String WORKER_AMI_ID = "ami-004f6abe9e4e405ad";
     static final String SECURITY_GROUP = "CNV-ssh+http";
     static final String EC2_REGION = "us-east-1";
 
     private AmazonEC2 ec2;
 
-    public ScalerThread() {
+    private LoadBalancer lb;
 
+    public ScalerThread(LoadBalancer lb) {
+	this.lb = lb;
 	ec2 = AmazonEC2ClientBuilder
 	    .standard()
 	    .withRegion(EC2_REGION)
@@ -78,7 +80,7 @@ public class ScalerThread extends Thread {
 	Instance instance = run_response.getReservation().getInstances().get(0);
 	String reservation_id = instance.getInstanceId();
 
-	LoadBalancer.addInstance(new WorkerInstanceHolder(instance));
+	this.lb.addInstance(new WorkerInstanceHolder(instance));
 
 	Log.i(LOG_TAG, String.format("Successfully started EC2 instance %s based on AMI %s", reservation_id, WORKER_AMI_ID));
     }

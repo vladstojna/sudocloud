@@ -20,12 +20,10 @@ public class LoadBalancer {
     public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
 
     // FIXME improve datastructure
-    public static List<Request> runningRequests = new ArrayList<>();
+    public List<Request> runningRequests = new ArrayList<>();
     private static List<WorkerInstanceHolder> workerInstances = new ArrayList<>();
 
-    private LoadBalancer() {}
-
-    public static void init() {
+    public LoadBalancer() {
 	initRunningWorkerInstances();
 	Log.i(LOG_TAG, "Loadbalancer initialized");
     }
@@ -33,7 +31,7 @@ public class LoadBalancer {
     /**
      * Obtains the instance that should be used for the next operation
      **/
-    public static WorkerInstanceHolder getWorkerInstance() {
+    public WorkerInstanceHolder getWorkerInstance() {
 	// FIXME add logic of choice of workerInstance
 	return workerInstances.get(0);
     }
@@ -41,7 +39,7 @@ public class LoadBalancer {
     /**
      * Informs the loadbalancer that a request has started processing
      **/
-    public static void startedProcessing(Request request) {
+    public void startedProcessing(Request request) {
 	Log.i(LOG_TAG, String.format("Added request '%d to list of processing requests", request.getId()));
 	runningRequests.add(request);
 	Log.i(LOG_TAG, String.format("Currently running %d requests", runningRequests.size()));
@@ -50,7 +48,7 @@ public class LoadBalancer {
     /**
      * Informs the loadbalancer that the request has finished processing
      **/
-    public static void finishedProcessing(Request request) {
+    public void finishedProcessing(Request request) {
 	Log.i(LOG_TAG, String.format("Added request '%d0 to list of processing requests", request.getId()));
 	runningRequests.remove(request);
 	Log.i(LOG_TAG, String.format("Currently running %d requests", runningRequests.size()));
@@ -61,7 +59,7 @@ public class LoadBalancer {
      *
      * They are tagged with the tag "type:worker"
      **/
-    private static void initRunningWorkerInstances() {
+    private void initRunningWorkerInstances() {
 	Log.i(LOG_TAG, "Initial worker instance lookup");
 	try {
 	    //Create the Filter to use to find running instances
@@ -97,7 +95,7 @@ public class LoadBalancer {
     }
 
 
-    static void addInstance(WorkerInstanceHolder instance) {
+    public void addInstance(WorkerInstanceHolder instance) {
 	workerInstances.add(instance);
     }
 }
