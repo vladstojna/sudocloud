@@ -134,17 +134,17 @@ run-raw: compile ## run worker server without instrumented solvers
 #----------------------------------#
 #  basic loadbalancer compilation  #
 #----------------------------------#
-LB_MAIN_CLASS=pt.ulisboa.tecnico.cnv.load_balancer.WebServer
-LB_SDK_DIR=$(HOME)/aws-java-sdk
-LB_CP=$(TARGET):$(LB_SDK_DIR)/lib/aws-java-sdk.jar:$(LB_SDK_DIR)/third-party/lib/*:$(BASE_DIR)/lib/*
+LB_MAIN_CLASS = pt.ulisboa.tecnico.cnv.load_balancer.WebServer
+
+sources-lb = $(shell find $(PROJECT_SRC)/load_balancer -type f -name "*.java")
 
 compile-lb: ## compile load balancer
 	@echo "*** Compiling project"
 	@mkdir -p $(TARGET)
-	javac -cp "$(LB_CP)" -d $(TARGET) $(BASE_DIR)/src/pt/ulisboa/tecnico/cnv/load_balancer/*.java
+	javac -cp "$(CLASSPATH)" -d $(TARGET) $(sources-lb)
 
 run-lb: compile-lb ## run load-balancer
 	@echo "*** forwarding :80 -> :$(LB_PORT) (in order to run java as regular user)"
 	sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port $(LB_PORT)
 	@echo "*** Running load balancer"
-	java $(JFLAGS) -cp "$(LB_CP)" $(LB_MAIN_CLASS)
+	java $(JFLAGS) -cp "$(CLASSPATH)" $(LB_MAIN_CLASS)
