@@ -1,7 +1,9 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.amazonaws.AmazonClientException;
@@ -9,7 +11,10 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
+import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
+import com.amazonaws.services.dynamodbv2.model.GetItemResult;
 import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.dynamodbv2.model.KeyType;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
@@ -160,11 +165,40 @@ public class LoadBalancer {
 		return workerConfig;
 	}
 
+	private Map<String, AttributeValue> getKey(String keyValue) {
+		Map<String, AttributeValue> map = new HashMap<>();
+		AttributeValue attributeValue = new AttributeValue().withS(keyValue);
+		map.put(dynamoDBConfig.getKeyName(), attributeValue);
+		return map;
+	}
+
+	private Map<String, AttributeValue> getItem(String requestKey) {
+		GetItemRequest getRequest = new GetItemRequest(
+			dynamoDBConfig.getTableName(),
+			getKey(requestKey));
+		GetItemResult result = dynamoDB.getItem(getRequest);
+		return result.getItem();
+	}
+
+	// TODO implement predictor
+	private void getAndUpdateCost(Request request) {
+		Map<String, AttributeValue> items = getItem(request.getQuery());
+		// if no entry found in DB, predict cost
+		long cost;
+		if (items.isEmpty()) {
+			cost = 100000000L;
+		} else {
+			cost = Long.parseLong(items.get(dynamoDBConfig.getValueName()).getN());
+		}
+		request.setCost(cost);
+	}
+
 	public void addInstance(Instance instance) {
 		instances.add(new WorkerInstanceHolder(instance));
 	}
 
 	public WorkerInstanceHolder chooseInstance(Request request) {
+		getAndUpdateCost(request);
 		synchronized (skipListLock) {
 			WorkerInstanceHolder holder = instances.pollFirst();
 			holder.addRequest(request);
