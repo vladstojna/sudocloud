@@ -3,11 +3,11 @@ package pt.ulisboa.tecnico.cnv.load_balancer.handler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-import pt.ulisboa.tecnico.cnv.load_balancer.HttpUtil;
 import pt.ulisboa.tecnico.cnv.load_balancer.LoadBalancer;
 import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.QueryParameters;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.HttpUtil;
 
 import java.io.IOException;
 

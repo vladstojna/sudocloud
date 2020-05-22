@@ -11,6 +11,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.StatusHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.SudokuHandler;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 /**
  * LoadBalancer Webserver

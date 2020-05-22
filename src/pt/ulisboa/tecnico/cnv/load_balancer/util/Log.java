@@ -1,4 +1,4 @@
-package pt.ulisboa.tecnico.cnv.load_balancer;
+package pt.ulisboa.tecnico.cnv.load_balancer.util;
 
 /**
  * Very simple logging class

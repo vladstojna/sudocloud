@@ -10,6 +10,8 @@ import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.ec2.model.TagSpecification;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
+
 /**
  * Autoscaler component. Runs in a background thread
  *

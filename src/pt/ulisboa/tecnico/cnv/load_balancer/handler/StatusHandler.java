@@ -4,7 +4,7 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-import pt.ulisboa.tecnico.cnv.load_balancer.Log;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 import java.io.*;
 
