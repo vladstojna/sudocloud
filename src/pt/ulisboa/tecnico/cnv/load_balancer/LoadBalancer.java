@@ -172,6 +172,11 @@ public class LoadBalancer {
 		return workerConfig;
 	}
 
+	/**
+	 * Converts a raw key value into a dynamoDB key
+	 * @param keyValue the raw key value
+	 * @return dynamoDB key
+	 */
 	private Map<String, AttributeValue> getDynamoDBKey(String keyValue) {
 		Map<String, AttributeValue> map = new HashMap<>();
 		AttributeValue attributeValue = new AttributeValue().withS(keyValue);
@@ -179,6 +184,11 @@ public class LoadBalancer {
 		return map;
 	}
 
+	/**
+	 * Gets an item from dynamoDB.
+	 * @param requestKey the raw key value
+	 * @return the item or null if not found
+	 */
 	private Map<String, AttributeValue> getItem(String requestKey) {
 		GetItemRequest getRequest = new GetItemRequest(
 			dynamoDBConfig.getTableName(),
@@ -192,11 +202,15 @@ public class LoadBalancer {
 		Map<String, AttributeValue> items = getItem(request.getQuery());
 		// if no entry found in DB, predict cost
 		long cost;
-		if (items.isEmpty()) {
-			Log.i(LOG_TAG, "Request " + request + " not found");
+		if (items == null) {
+			Log.i(LOG_TAG, "Not found - request " + request);
 			cost = 100000000L;
 		} else {
-			Log.i(LOG_TAG, "Request " + request + " found");
+			Log.i(LOG_TAG, "Found - request " + request);
+			AttributeValue attrValue = items.getOrDefault(dynamoDBConfig.getValueName(), null);
+			if (attrValue == null) {
+				throw new RuntimeException("Item found but \"" + dynamoDBConfig.getValueName() + "\" not found!");
+			}
 			cost = Long.parseLong(items.get(dynamoDBConfig.getValueName()).getN());
 		}
 		request.setCost(cost);
@@ -212,9 +226,9 @@ public class LoadBalancer {
 		getAndUpdateCost(request);
 		synchronized (skipListLock) {
 			WorkerInstanceHolder holder = instances.pollFirst();
-			Log.i(LOG_TAG, "Instance chosen: " + holder);
 			holder.addRequest(request);
 			instances.add(holder);
+			Log.i(LOG_TAG, "Instance chosen: " + holder);
 			return holder;
 		}
 	}
