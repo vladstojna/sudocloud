@@ -2,8 +2,7 @@ package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
@@ -31,6 +30,7 @@ import com.amazonaws.services.ec2.model.TagSpecification;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 
 public class LoadBalancer {
 
@@ -42,11 +42,8 @@ public class LoadBalancer {
 	private final AmazonDynamoDB dynamoDB;
 	private final AmazonEC2 ec2;
 
-	// FIXME improve datastructure
-	public List<Request> runningRequests = new ArrayList<>();
-
-	// FIXME: temporary boolean type just to hold instance types
-	private final Map<Instance, Boolean> instances;
+	private final Object skipListLock = new Object();
+	private final ConcurrentSkipListSet<WorkerInstanceHolder> instances;
 
 	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc) {
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
@@ -60,7 +57,7 @@ public class LoadBalancer {
 		}
 		dynamoDBConfig = dc;
 		workerConfig = wc;
-		instances = new ConcurrentHashMap<>();
+		instances = new ConcurrentSkipListSet<>();
 
 		ec2 = AmazonEC2ClientBuilder.standard()
 			.withCredentials(credentialsProvider)
@@ -133,7 +130,7 @@ public class LoadBalancer {
 				.withSecurityGroups(workerConfig.getSecurityGroup());
 			RunInstancesResult runResult = ec2.runInstances(runRequest);
 			Instance inst = runResult.getReservation().getInstances().get(0);
-			instances.put(inst, true);
+			instances.add(new WorkerInstanceHolder(inst));
 			Log.i(LOG_TAG, "No worker instances found, created one with id " + inst.getInstanceId());
 			return;
 		}
@@ -147,7 +144,7 @@ public class LoadBalancer {
 				} else {
 					Log.i(LOG_TAG, "Found RUNNING worker instance with id " + instance.getInstanceId());
 				}
-				instances.put(instance, true);
+				instances.add(new WorkerInstanceHolder(instance));
 			}
 		}
 
@@ -158,26 +155,29 @@ public class LoadBalancer {
 		}
 	}
 
-	/**
-	 * Informs the loadbalancer that a request has started processing
-	 **/
-	public void startedProcessing(Request request) {
-		Log.i(LOG_TAG, String.format("Added request '%d to list of processing requests", request.getId()));
-		runningRequests.add(request);
-		Log.i(LOG_TAG, String.format("Currently running %d requests", runningRequests.size()));
-	}
-
-	/**
-	 * Informs the loadbalancer that the request has finished processing
-	 **/
-	public void finishedProcessing(Request request) {
-		Log.i(LOG_TAG, String.format("Added request '%d0 to list of processing requests", request.getId()));
-		runningRequests.remove(request);
-		Log.i(LOG_TAG, String.format("Currently running %d requests", runningRequests.size()));
+	public WorkerInstanceConfig getWorkerInstanceConfig() {
+		return workerConfig;
 	}
 
 	public void addInstance(Instance instance) {
-		instances.put(instance, true);
+		instances.add(new WorkerInstanceHolder(instance));
+	}
+
+	public WorkerInstanceHolder chooseInstance(Request request) {
+		synchronized (skipListLock) {
+			WorkerInstanceHolder holder = instances.pollFirst();
+			holder.addRequest(request);
+			instances.add(holder);
+			return holder;
+		}
+	}
+
+	public void removeRequest(WorkerInstanceHolder holder, Request request) {
+		synchronized (skipListLock) {
+			instances.remove(holder);
+			holder.removeRequest(request.getId());
+			instances.add(holder);
+		}
 	}
 
 }
