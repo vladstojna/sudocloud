@@ -9,10 +9,20 @@ these requirements:
   - developing on a linux environment
   - installed: make, rsync (on both your computer and ec2)
 
+### Add your credentials
+
 For deploying the loadbalancer you will also need to setup you AWS
 credetials file. You just need to `cp aws_credentials.template
 aws_credentials` and edit `aws_credentials` to fill in with your
 credentials.
+
+### Edit configuration files
+You'll need to edit the following configuration files (in
+`src/resources/*.properties`) with your specific AWS configuration.
+
+If you don't have already an AMI image then deploy a worker instance
+(see in [deploying](#Deploying-remotely)) and then use that as a base
+for an AMI.
 
 
 Deploying
