@@ -1,5 +1,6 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -67,7 +68,7 @@ public class Request {
 			Util.proxyRequest(httpExchange, instanceAddress);
 			this.lb.finishedProcessing(this);
 			Log.i("> Sent response to user: " + httpExchange.getRemoteAddress().toString());
-		} catch (GeneralForwarderRuntimeException e) {
+		} catch (IOException e) {
 			Log.e("Request failed");
 			Log.e(e.getMessage());
 		}

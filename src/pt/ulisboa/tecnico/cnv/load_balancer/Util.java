@@ -1,16 +1,17 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.ProtocolException;
 import java.net.URL;
-
 import java.util.List;
 import java.util.Map;
 
-import java.io.*;
+import com.sun.net.httpserver.Headers;
+import com.sun.net.httpserver.HttpExchange;
 
 public class Util {
 
@@ -27,8 +28,7 @@ public class Util {
 	 * instance). For this reason the code is converting from
 	 * HTTPExchange to HttpUrlConnection and back.
 	 **/
-	public static void proxyRequest(HttpExchange t, String serverAddress)
-				throws GeneralForwarderRuntimeException {
+	public static void proxyRequest(HttpExchange t, String serverAddress) throws IOException {
 
 		HttpURLConnection connection = null;
 
@@ -40,21 +40,18 @@ public class Util {
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setDoOutput(true); // allow sending data to connection
 
-			forwardRequestHeaders(t, connection);
+			forwardRequestHeaders(t.getRequestHeaders(), connection);
 
 			// read request body and forward it to worker instance
 			forwardStream(t.getRequestBody(), connection.getOutputStream());
 
 			// build final response headers from headers received from worker instance
-			forwardResponseHeaders(connection, t);
+			forwardResponseHeaders(t.getResponseHeaders(), connection);
 
-			t.sendResponseHeaders(200, connection.getContentLength());
+			t.sendResponseHeaders(200, connection.getContentLengthLong());
 
 			// read response body from worker instance and add it to the final response
 			forwardStream(connection.getInputStream(), t.getResponseBody());
-
-		} catch (Exception e) {
-			throw new GeneralForwarderRuntimeException(e.getMessage());
 		} finally {
 			if (connection != null) {
 				connection.disconnect();
@@ -68,11 +65,11 @@ public class Util {
 	 * Copies response headers from worker instance's response to the loadbalancer's
 	 * response.
 	 **/
-	static void forwardRequestHeaders(HttpExchange t, HttpURLConnection c) throws ProtocolException {
-		Headers lbRequestHeaders = t.getRequestHeaders();
-		for (Map.Entry<String, List<String>> header : lbRequestHeaders.entrySet()) {
-			for (String value : header.getValue())
+	private static void forwardRequestHeaders(Headers requestHeaders, HttpURLConnection c) {
+		for (Map.Entry<String, List<String>> header : requestHeaders.entrySet()) {
+			for (String value : header.getValue()) {
 				c.setRequestProperty(header.getKey(), value);
+			}
 		}
 	}
 
@@ -80,19 +77,19 @@ public class Util {
 	 * Copies response headers from worker instance's response to the loadbalancer's
 	 * response.
 	 **/
-	static void forwardResponseHeaders(HttpURLConnection c, HttpExchange t) {
+	private static void forwardResponseHeaders(Headers responseHeaders, HttpURLConnection c) {
 		// FIXME possible information leakage: response header fields
 		// include metadata about the worker instance that doest not
 		// need to be leaked outside of the loadbalancer. Ignoring it
 		// for now as it is non-critical.
 
 		Map<String, List<String>> workerResponseHeaders = c.getHeaderFields();
-		Headers lbResponseHeaders = t.getResponseHeaders();
 		for (Map.Entry<String, List<String>> header : workerResponseHeaders.entrySet()) {
 			if (header.getKey() == null)
 				continue; // Ignore the [HTTP/1.1 200 OK] from previous request
-			for (String value : header.getValue())
-				lbResponseHeaders.add(header.getKey(), value);
+			for (String value : header.getValue()) {
+				responseHeaders.add(header.getKey(), value);
+			}
 		}
 	}
 
@@ -103,28 +100,14 @@ public class Util {
 	 * nicer solution. But unfortunately this is java7
 	 **/
 	private static void forwardStream(InputStream in, OutputStream out) throws IOException {
+		try (InputStream is = new DataInputStream(in);
+			OutputStream os = new DataOutputStream(out)) {
 
-		byte[] buffer = new byte[READ_BUFFER_SIZE];
-		InputStream mInputStream = null;
-		OutputStream mOutputStream = null;
-
-		try {
-			mInputStream = new DataInputStream(in);
-			mOutputStream = new DataOutputStream(out);
-
-			while (true) {
-				int bytesRead = mInputStream.read(buffer);
-				if (bytesRead == -1)
-					break; // End of stream is reached
-
-				mOutputStream.write(buffer, 0, bytesRead);
+			byte[] buffer = new byte[READ_BUFFER_SIZE];
+			int bytesRead;
+			while ((bytesRead = is.read(buffer)) != -1) {
+				os.write(buffer, 0, bytesRead);
 			}
-		} catch (IOException e) {
-			Log.e(e.getMessage());
-			// FIXME better handle exception
-		} finally {
-			mInputStream.close();
-			mOutputStream.close();
 		}
 	}
 }
