@@ -28,14 +28,20 @@ public class SudokuHandler implements HttpHandler {
 
 		Log.i(LOG_TAG, "> Query: " + query);
 
-		QueryParameters queryParams = new QueryParameters(query);
-		Request request = new Request(query, queryParams);
+		try {
 
-		WorkerInstanceHolder instanceHolder = lb.chooseInstance(request);
+			QueryParameters queryParams = new QueryParameters(query);
+			Request request = new Request(query, queryParams);
 
-		HttpUtil.proxyRequest(t, instanceHolder.getInstance().getPublicIpAddress(),
-			lb.getWorkerInstanceConfig().getPort());
+			WorkerInstanceHolder instanceHolder = lb.chooseInstance(request);
 
-		lb.removeRequest(instanceHolder, request);
+			HttpUtil.proxyRequest(t, instanceHolder.getInstance().getPublicIpAddress(),
+				lb.getWorkerInstanceConfig().getPort());
+
+			lb.removeRequest(instanceHolder, request);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 }
