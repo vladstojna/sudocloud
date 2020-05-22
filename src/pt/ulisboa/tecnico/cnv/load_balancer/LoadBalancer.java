@@ -64,7 +64,7 @@ public class LoadBalancer {
 		}
 		dynamoDBConfig = dc;
 		workerConfig = wc;
-		instances = new ConcurrentSkipListSet<>();
+		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.TotalCostComparator());
 
 		ec2 = AmazonEC2ClientBuilder.standard()
 			.withCredentials(credentialsProvider)
