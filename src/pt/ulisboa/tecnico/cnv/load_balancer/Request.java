@@ -65,7 +65,7 @@ public class Request {
 
 		try {
 			this.lb.startedProcessing(this);
-			Util.proxyRequest(httpExchange, instanceAddress);
+			HttpUtil.proxyRequest(httpExchange, instanceAddress);
 			this.lb.finishedProcessing(this);
 			Log.i("> Sent response to user: " + httpExchange.getRemoteAddress().toString());
 		} catch (IOException e) {
