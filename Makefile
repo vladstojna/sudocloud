@@ -97,6 +97,7 @@ SDK_DIR = $(HOME)/aws-java-sdk
 
 BASEDIR = $(shell pwd)
 SOURCE = $(BASEDIR)/src
+RESOURCES = $(shell find $(SOURCE)/resources -type f -name "*.properties")
 TARGET = $(BASEDIR)/target
 
 PROJECT_SRC = $(SOURCE)/pt/ulisboa/tecnico/cnv
@@ -112,6 +113,7 @@ sources = $(shell find $(SOURCE) -type f -name "*.java")
 compile: ## compile project
 	@echo "*** Compiling project"
 	@mkdir -p $(TARGET)
+	@cp $(RESOURCES) $(TARGET)
 	@javac -cp "$(CLASSPATH)" -d $(TARGET) $(sources)
 
 clean: ## clean project (generated class files)
@@ -141,6 +143,7 @@ sources-lb = $(shell find $(PROJECT_SRC)/load_balancer -type f -name "*.java")
 compile-lb: ## compile load balancer
 	@echo "*** Compiling project"
 	@mkdir -p $(TARGET)
+	@cp $(RESOURCES) $(TARGET)
 	javac -cp "$(CLASSPATH)" -d $(TARGET) $(sources-lb)
 
 run-lb: compile-lb ## run load-balancer
