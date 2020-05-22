@@ -1,35 +1,89 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
+import java.util.Comparator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.amazonaws.services.ec2.model.Instance;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.request.Id;
+import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
+
 /**
- * Holder of amazon instance that essentiall works as a wrapper
- *
- * This cannot extend Instance since those objects are instantiated by
- * the amazon ASK itself (FIXME maybe some design pattern would make
- * this possible)
- **/
+ * Holder that has all information regarding an instance,
+ * the Instance it runs on, all the requests currently being processed by that Instance
+ * and the total cost of these requests
+ */
 public class WorkerInstanceHolder {
 
-	private Instance instance;
-	private static final String SOLVER_PORT = "8000";
+	private final Instance instance;
+	private final Map<Id, Request> requests;
+	private long totalCost;
+
+	public static final class TotalCostComparator implements Comparator<WorkerInstanceHolder> {
+		@Override
+		public int compare(WorkerInstanceHolder o1, WorkerInstanceHolder o2) {
+			if (o1.getTotalCost() < o2.getTotalCost())
+				return -1;
+			if (o1.getTotalCost() == o2.getTotalCost())
+				return 0;
+			return 1;
+		}
+	}
 
 	public WorkerInstanceHolder(Instance instance) {
 		this.instance = instance;
+		requests = new ConcurrentHashMap<>();
+		totalCost = 0;
 	}
 
-	public void processRequest(Request request) {
-
+	public Instance getInstance() {
+		return instance;
 	}
 
-	/**
-	 * Returns the "private_ip + port" to the solver
-	 **/
-	public String getSolverAddress() {
-		return String.format("%s:%s", instance.getPrivateIpAddress(), SOLVER_PORT);
+	public Request getRequest(Id id) {
+		return requests.get(id);
 	}
 
-	public String getId() {
-		return instance.getInstanceId();
+	public long getTotalCost() {
+		return totalCost;
 	}
+
+	public void addRequest(Request req) {
+		requests.put(req.getId(), req);
+		totalCost += req.getCost();
+	}
+
+	public void removeRequest(Id id) {
+		Request req = requests.remove(id);
+		if (req != null) {
+			totalCost -= req.getCost();
+		}
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((instance == null) ? 0 : instance.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		WorkerInstanceHolder other = (WorkerInstanceHolder) obj;
+		if (instance == null) {
+			if (other.instance != null)
+				return false;
+		} else if (!instance.equals(other.instance))
+			return false;
+		return true;
+	}
+
 }
