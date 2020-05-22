@@ -69,7 +69,7 @@ public class ScalerThread extends Thread {
 		Instance instance = run_response.getReservation().getInstances().get(0);
 		String reservation_id = instance.getInstanceId();
 
-		this.lb.addInstance(new WorkerInstanceHolder(instance));
+		lb.addInstance(instance);
 
 		Log.i(LOG_TAG, String.format("Successfully started EC2 instance %s based on AMI %s", reservation_id, WORKER_AMI_ID));
 	}

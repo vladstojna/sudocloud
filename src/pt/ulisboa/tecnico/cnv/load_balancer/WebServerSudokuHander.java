@@ -14,6 +14,8 @@ class WebServerSudokuHandler implements HttpHandler {
 
 	public void handle(final HttpExchange t) throws IOException {
 
+		/*
+
 		Request request = new Request.Builder()
 			.withHttpExchange(t)
 			.withCallback(lb)
@@ -24,5 +26,7 @@ class WebServerSudokuHandler implements HttpHandler {
 
 		request.assignToInstance(instance);
 		request.process();
+
+		*/
 	}
 }

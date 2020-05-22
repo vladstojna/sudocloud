@@ -2,9 +2,10 @@ package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
@@ -22,6 +23,11 @@ import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.Reservation;
+import com.amazonaws.services.ec2.model.RunInstancesRequest;
+import com.amazonaws.services.ec2.model.RunInstancesResult;
+import com.amazonaws.services.ec2.model.StartInstancesRequest;
+import com.amazonaws.services.ec2.model.Tag;
+import com.amazonaws.services.ec2.model.TagSpecification;
 
 public class LoadBalancer {
 
@@ -33,7 +39,9 @@ public class LoadBalancer {
 
 	// FIXME improve datastructure
 	public List<Request> runningRequests = new ArrayList<>();
-	private static List<WorkerInstanceHolder> workerInstances = new ArrayList<>();
+
+	// FIXME: temporary boolean type just to hold instance types
+	private final Map<Instance, Boolean> instances;
 
 	public LoadBalancer(String tableName, String region) {
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
@@ -46,16 +54,21 @@ public class LoadBalancer {
 				"location (~/.aws/credentials), and is in valid format.", e);
 		}
 		this.tableName = tableName;
+		this.instances = new ConcurrentHashMap<>();
+
 		this.ec2 = AmazonEC2ClientBuilder.standard()
 			.withCredentials(credentialsProvider)
 			.withRegion(region)
 			.build();
+
 		this.dynamoDB = AmazonDynamoDBClientBuilder.standard()
 			.withCredentials(credentialsProvider)
 			.withRegion(region)
 			.build();
+
 		createTableIfNotExists();
-		// initRunningWorkerInstances();
+		getOrCreateWorkerInstances();
+
 		Log.i(LOG_TAG, "Loadbalancer initialized");
 	}
 
@@ -81,11 +94,64 @@ public class LoadBalancer {
 	}
 
 	/**
-	 * Obtains the instance that should be used for the next operation
+	 * Find the running or stopped worker instances and registers them.
+	 * Starts stopped instances.
+	 * If no instances found, create a new one.
+	 * They are tagged with the tag "type:worker"
 	 **/
-	public WorkerInstanceHolder getWorkerInstance() {
-		// FIXME add logic of choice of workerInstance
-		return workerInstances.get(0);
+	private void getOrCreateWorkerInstances() {
+		Log.i(LOG_TAG, "Initial worker instance lookup");
+
+		Filter tagFilter = new Filter("tag:type")
+			.withValues("worker");
+		Filter statusFilter = new Filter("instance-state-name")
+			.withValues("running", "stopped");
+
+		DescribeInstancesRequest request = new DescribeInstancesRequest()
+			.withFilters(tagFilter, statusFilter);
+
+		// Find the running instances
+		DescribeInstancesResult response = ec2.describeInstances(request);
+
+		// If no worker instances, create one
+		if (response.getReservations().isEmpty()) {
+			RunInstancesRequest runRequest = new RunInstancesRequest();
+			runRequest.withImageId("ami-0323c3dd2da7fb37d")
+				.withTagSpecifications(new TagSpecification()
+					.withResourceType("instance")
+					.withTags(new Tag()
+						.withKey("type")
+						.withValue("worker")))
+				.withInstanceType("t2.micro")
+				.withMinCount(1)
+				.withMaxCount(1)
+				.withKeyName("sudocloud")
+				.withSecurityGroups("sudocloud-1");
+			RunInstancesResult runResult = ec2.runInstances(runRequest);
+			Instance inst = runResult.getReservation().getInstances().get(0);
+			instances.put(inst, true);
+			Log.i(LOG_TAG, "No worker instances found, created one with id " + inst.getInstanceId());
+			return;
+		}
+
+		List<String> stoppedInstanceIds = new ArrayList<>();
+		for (Reservation reservation : response.getReservations()) {
+			for (Instance instance : reservation.getInstances()) {
+				if (instance.getState().getName().equals("stopped")) {
+					stoppedInstanceIds.add(instance.getInstanceId());
+					Log.i(LOG_TAG, "Found STOPPED worker instance with id " + instance.getInstanceId());
+				} else {
+					Log.i(LOG_TAG, "Found RUNNING worker instance with id " + instance.getInstanceId());
+				}
+				instances.put(instance, true);
+			}
+		}
+
+		if (!stoppedInstanceIds.isEmpty()) {
+			StartInstancesRequest startRequest = new StartInstancesRequest();
+			startRequest.withInstanceIds(stoppedInstanceIds);
+			ec2.startInstances(startRequest);
+		}
 	}
 
 	/**
@@ -106,48 +172,8 @@ public class LoadBalancer {
 		Log.i(LOG_TAG, String.format("Currently running %d requests", runningRequests.size()));
 	}
 
-	/**
-	 * Find the worker instances and adds them to
-	 *
-	 * They are tagged with the tag "type:worker"
-	 **/
-	private void initRunningWorkerInstances() {
-		Log.i(LOG_TAG, "Initial worker instance lookup");
-		try {
-			//Create the Filter to use to find running instances
-			Filter tag_filter = new Filter("tag:type");
-			tag_filter.withValues("worker");
-
-			Filter status_filter = new Filter("instance-state-name")
-			.withValues("running");
-
-			//Create a DescribeInstancesRequest
-			DescribeInstancesRequest request = new DescribeInstancesRequest();
-			request.withFilters(tag_filter, status_filter);
-
-			// Find the running instances
-			DescribeInstancesResult response = ec2.describeInstances(request);
-
-			for (Reservation reservation : response.getReservations()) {
-				for (Instance instance : reservation.getInstances()) {
-					workerInstances.add(new WorkerInstanceHolder(instance));
-					Log.i(LOG_TAG, "Found worker instance with id " +
-							instance.getInstanceId());
-				}
-			}
-
-		} catch (SdkClientException e) {
-			e.getStackTrace();
-		}
-
-		if (workerInstances.size() == 0) {
-			Log.i(LOG_TAG, "No running worker instance was found");
-			Log.i(LOG_TAG, "Maybe you forgot to tag them with 'type:worker'");
-		}
+	public void addInstance(Instance instance) {
+		instances.put(instance, true);
 	}
 
-
-	public void addInstance(WorkerInstanceHolder instance) {
-		workerInstances.add(instance);
-	}
 }
