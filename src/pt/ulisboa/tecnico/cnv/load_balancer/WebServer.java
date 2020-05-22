@@ -2,7 +2,12 @@ package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import com.sun.net.httpserver.HttpServer;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
+
+import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.util.Properties;
 import java.util.concurrent.Executors;
 
 /**
@@ -10,9 +15,43 @@ import java.util.concurrent.Executors;
  **/
 public class WebServer {
 
+	private static DynamoDBConfig getDynamoDBConfig() throws Exception {
+		Properties props = new Properties();
+		try (InputStream is = WebServer.class.getClassLoader().getResourceAsStream("dynamodb.properties")) {
+			props.load(is);
+			return new DynamoDBConfig(
+				props.getProperty("tableName"),
+				props.getProperty("region"),
+				props.getProperty("keyName"),
+				props.getProperty("valueName"),
+				Long.parseLong(props.getProperty("readCapacity")),
+				Long.parseLong(props.getProperty("writeCapacity")));
+		}
+	}
+
+	private static WorkerInstanceConfig getWorkerInstanceConfig() throws Exception {
+		Properties props = new Properties();
+		try (InputStream is = WebServer.class.getClassLoader().getResourceAsStream("worker.properties")) {
+			props.load(is);
+			return new WorkerInstanceConfig(
+				Integer.parseInt(props.getProperty("port")),
+				props.getProperty("image"),
+				props.getProperty("type"),
+				props.getProperty("region"),
+				props.getProperty("tagKey"),
+				props.getProperty("tagValue"),
+				props.getProperty("keyName"),
+				props.getProperty("securityGroup"));
+		}
+	}
+
 	public static void main(final String[] args) throws Exception {
+
+		DynamoDBConfig dynamoDBConfig = getDynamoDBConfig();
+		WorkerInstanceConfig workerConfig = getWorkerInstanceConfig();
+
 		// Intialize loadbalancer
-		LoadBalancer lb = new LoadBalancer("metrics-table", "us-east-1");
+		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig);
 
 		// start autoscaler thread
 		// ScalerThread scaler = new ScalerThread(lb);

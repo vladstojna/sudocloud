@@ -29,11 +29,16 @@ import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.ec2.model.TagSpecification;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
+
 public class LoadBalancer {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
-	private final String tableName;
+	private final DynamoDBConfig dynamoDBConfig;
+	private final WorkerInstanceConfig workerConfig;
+
 	private final AmazonDynamoDB dynamoDB;
 	private final AmazonEC2 ec2;
 
@@ -43,7 +48,7 @@ public class LoadBalancer {
 	// FIXME: temporary boolean type just to hold instance types
 	private final Map<Instance, Boolean> instances;
 
-	public LoadBalancer(String tableName, String region) {
+	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc) {
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 		try {
 			credentialsProvider.getCredentials();
@@ -53,17 +58,18 @@ public class LoadBalancer {
 				"Please make sure that your credentials file is at the correct " +
 				"location (~/.aws/credentials), and is in valid format.", e);
 		}
-		this.tableName = tableName;
-		this.instances = new ConcurrentHashMap<>();
+		dynamoDBConfig = dc;
+		workerConfig = wc;
+		instances = new ConcurrentHashMap<>();
 
-		this.ec2 = AmazonEC2ClientBuilder.standard()
+		ec2 = AmazonEC2ClientBuilder.standard()
 			.withCredentials(credentialsProvider)
-			.withRegion(region)
+			.withRegion(workerConfig.getRegion())
 			.build();
 
-		this.dynamoDB = AmazonDynamoDBClientBuilder.standard()
+		dynamoDB = AmazonDynamoDBClientBuilder.standard()
 			.withCredentials(credentialsProvider)
-			.withRegion(region)
+			.withRegion(dynamoDBConfig.getRegion())
 			.build();
 
 		createTableIfNotExists();
@@ -74,20 +80,20 @@ public class LoadBalancer {
 
 	private void createTableIfNotExists() {
 		CreateTableRequest createTableRequest = new CreateTableRequest()
-			.withTableName(tableName)
+			.withTableName(dynamoDBConfig.getTableName())
 			.withKeySchema(new KeySchemaElement()
-				.withAttributeName("query")
+				.withAttributeName(dynamoDBConfig.getKeyName())
 				.withKeyType(KeyType.HASH))
 			.withAttributeDefinitions(new AttributeDefinition()
-				.withAttributeName("query")
+				.withAttributeName(dynamoDBConfig.getKeyName())
 				.withAttributeType(ScalarAttributeType.S))
 			.withProvisionedThroughput(new ProvisionedThroughput()
-				.withReadCapacityUnits(10L)
-				.withWriteCapacityUnits(10L));
+				.withReadCapacityUnits(dynamoDBConfig.getReadCapacity())
+				.withWriteCapacityUnits(dynamoDBConfig.getWriteCapacity()));
 
 		TableUtils.createTableIfNotExists(dynamoDB, createTableRequest);
 		try {
-			TableUtils.waitUntilActive(dynamoDB, tableName);
+			TableUtils.waitUntilActive(dynamoDB, dynamoDBConfig.getTableName());
 		} catch (Exception e) {
 			throw new AmazonClientException("Table creation error", e);
 		}
@@ -102,8 +108,8 @@ public class LoadBalancer {
 	private void getOrCreateWorkerInstances() {
 		Log.i(LOG_TAG, "Initial worker instance lookup");
 
-		Filter tagFilter = new Filter("tag:type")
-			.withValues("worker");
+		Filter tagFilter = new Filter("tag:" + workerConfig.getTagKey())
+			.withValues(workerConfig.getTagValue());
 		Filter statusFilter = new Filter("instance-state-name")
 			.withValues("running", "stopped");
 
@@ -116,17 +122,15 @@ public class LoadBalancer {
 		// If no worker instances, create one
 		if (response.getReservations().isEmpty()) {
 			RunInstancesRequest runRequest = new RunInstancesRequest();
-			runRequest.withImageId("ami-0323c3dd2da7fb37d")
+			runRequest.withImageId(workerConfig.getImageId())
 				.withTagSpecifications(new TagSpecification()
 					.withResourceType("instance")
-					.withTags(new Tag()
-						.withKey("type")
-						.withValue("worker")))
-				.withInstanceType("t2.micro")
+					.withTags(new Tag(workerConfig.getTagKey(), workerConfig.getTagValue())))
+				.withInstanceType(workerConfig.getType())
 				.withMinCount(1)
 				.withMaxCount(1)
-				.withKeyName("sudocloud")
-				.withSecurityGroups("sudocloud-1");
+				.withKeyName(workerConfig.getKeyName())
+				.withSecurityGroups(workerConfig.getSecurityGroup());
 			RunInstancesResult runResult = ec2.runInstances(runRequest);
 			Instance inst = runResult.getReservation().getInstances().get(0);
 			instances.put(inst, true);
