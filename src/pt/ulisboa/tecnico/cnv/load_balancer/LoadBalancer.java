@@ -79,7 +79,7 @@ public class LoadBalancer {
 		createTableIfNotExists();
 		getOrCreateWorkerInstances();
 
-		Log.i(LOG_TAG, "Loadbalancer initialized");
+		Log.i(LOG_TAG, "initialized");
 	}
 
 	private void createTableIfNotExists() {
