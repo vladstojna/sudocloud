@@ -51,7 +51,7 @@ endif
 
 upload-code: assert-dev ## uploads the code to ec2 instance
 	@echo "*** Syncing code with ec2 instance"
-	@rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_WEBSERVER_USER_HOST):~/project
+	@rsync --delete -r -e 'ssh -i $(SSH_KEY)' . $(SSH_WEBSERVER_USER_HOST):~/project
 
 remote-webserver: assert-dev upload-code ## runs webserver on target ec2 instance
 	$(SSH_WEBSERVER) make webserver -f project/Makefile
@@ -66,7 +66,7 @@ webserver: assert-ec2 ## provision webserver
 
 upload-code-lb: assert-dev ## uploads the code to loadbalancer instance
 	@echo "*** Syncing code with ec2 instance"
-	@rsync -r -e 'ssh -i $(SSH_KEY)' . $(SSH_LB_USER_HOST):~/project
+	@rsync --delete -r -e 'ssh -i $(SSH_KEY)' . $(SSH_LB_USER_HOST):~/project
 
 remote-lb: assert-dev upload-code-lb ## runs load-balancer on target EC2 instance
 	@$(SSH_LB) make load-balancer -f project/Makefile
