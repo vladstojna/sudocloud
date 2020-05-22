@@ -38,4 +38,9 @@ public class Id {
 		return true;
 	}
 
+	@Override
+	public String toString() {
+		return "[value=" + value + "]";
+	}
+
 }

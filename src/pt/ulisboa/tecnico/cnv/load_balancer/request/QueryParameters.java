@@ -61,4 +61,52 @@ public class QueryParameters {
 		return columns;
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + columns;
+		result = prime * result + ((puzzleName == null) ? 0 : puzzleName.hashCode());
+		result = prime * result + rows;
+		result = prime * result + ((solverStrategy == null) ? 0 : solverStrategy.hashCode());
+		result = prime * result + unassignedEntries;
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		QueryParameters other = (QueryParameters) obj;
+		if (columns != other.columns)
+			return false;
+		if (puzzleName == null) {
+			if (other.puzzleName != null)
+				return false;
+		} else if (!puzzleName.equals(other.puzzleName))
+			return false;
+		if (rows != other.rows)
+			return false;
+		if (solverStrategy == null) {
+			if (other.solverStrategy != null)
+				return false;
+		} else if (!solverStrategy.equals(other.solverStrategy))
+			return false;
+		if (unassignedEntries != other.unassignedEntries)
+			return false;
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return "[solverStrategy=" + solverStrategy +
+			", puzzleName=" + puzzleName +
+			", unassignedEntries=" + unassignedEntries +
+			", size=" + columns + "x" + rows + "]";
+	}
+
 }
