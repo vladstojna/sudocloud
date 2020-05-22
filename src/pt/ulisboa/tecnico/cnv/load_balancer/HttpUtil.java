@@ -13,7 +13,7 @@ import java.util.Map;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 
-public class Util {
+public class HttpUtil {
 
 	private static final int READ_BUFFER_SIZE = 8192;
 
