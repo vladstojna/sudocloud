@@ -16,6 +16,7 @@ import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import com.amazonaws.services.dynamodbv2.util.TableUtils;
 import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Filter;
@@ -26,10 +27,9 @@ public class LoadBalancer {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
-	public static AmazonEC2 ec2; // null = AmazonEC2ClientBuilder.defaultClient();
-
 	private final String tableName;
-	private final AmazonDynamoDB dynamo;
+	private final AmazonDynamoDB dynamoDB;
+	private final AmazonEC2 ec2;
 
 	// FIXME improve datastructure
 	public List<Request> runningRequests = new ArrayList<>();
@@ -46,7 +46,11 @@ public class LoadBalancer {
 				"location (~/.aws/credentials), and is in valid format.", e);
 		}
 		this.tableName = tableName;
-		this.dynamo = AmazonDynamoDBClientBuilder.standard()
+		this.ec2 = AmazonEC2ClientBuilder.standard()
+			.withCredentials(credentialsProvider)
+			.withRegion(region)
+			.build();
+		this.dynamoDB = AmazonDynamoDBClientBuilder.standard()
 			.withCredentials(credentialsProvider)
 			.withRegion(region)
 			.build();
@@ -68,9 +72,9 @@ public class LoadBalancer {
 				.withReadCapacityUnits(10L)
 				.withWriteCapacityUnits(10L));
 
-		TableUtils.createTableIfNotExists(dynamo, createTableRequest);
+		TableUtils.createTableIfNotExists(dynamoDB, createTableRequest);
 		try {
-			TableUtils.waitUntilActive(dynamo, tableName);
+			TableUtils.waitUntilActive(dynamoDB, tableName);
 		} catch (Exception e) {
 			throw new AmazonClientException("Table creation error", e);
 		}
