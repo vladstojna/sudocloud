@@ -86,4 +86,11 @@ public class WorkerInstanceHolder {
 		return true;
 	}
 
+	@Override
+	public String toString() {
+		return "WorkerInstanceHolder [instance=" + instance.getInstanceId() +
+			", requests=" + requests.size() +
+			", totalCost=" + totalCost + "]";
+	}
+
 }
