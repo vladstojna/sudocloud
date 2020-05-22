@@ -1,18 +1,21 @@
-package pt.ulisboa.tecnico.cnv.load_balancer;
+package pt.ulisboa.tecnico.cnv.load_balancer.handler;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.HttpUtil;
+import pt.ulisboa.tecnico.cnv.load_balancer.LoadBalancer;
+import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.QueryParameters;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 
 import java.io.IOException;
 
-class WebServerSudokuHandler implements HttpHandler {
+public class SudokuHandler implements HttpHandler {
 
 	private final LoadBalancer lb;
 
-	public WebServerSudokuHandler(LoadBalancer lb) {
+	public SudokuHandler(LoadBalancer lb) {
 		this.lb = lb;
 	}
 

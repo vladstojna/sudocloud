@@ -1,11 +1,14 @@
-package pt.ulisboa.tecnico.cnv.load_balancer;
+package pt.ulisboa.tecnico.cnv.load_balancer.handler;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+
+import pt.ulisboa.tecnico.cnv.load_balancer.Log;
+
 import java.io.*;
 
-class WebServerStatusHandler implements HttpHandler {
+public class StatusHandler implements HttpHandler {
 	public void handle(final HttpExchange t) throws IOException {
 		Log.i("> Health Check");
 

@@ -1,14 +1,16 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
-import com.sun.net.httpserver.HttpServer;
-
-import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
-import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
-
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.util.Properties;
 import java.util.concurrent.Executors;
+
+import com.sun.net.httpserver.HttpServer;
+
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.handler.StatusHandler;
+import pt.ulisboa.tecnico.cnv.load_balancer.handler.SudokuHandler;
 
 /**
  * LoadBalancer Webserver
@@ -63,9 +65,9 @@ public class WebServer {
 		final HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
 		// sudoku solver endpoint
-		server.createContext("/sudoku", new WebServerSudokuHandler(lb));
+		server.createContext("/sudoku", new SudokuHandler(lb));
 		// health check endpoint
-		server.createContext("/status", new WebServerStatusHandler());
+		server.createContext("/status", new StatusHandler());
 
 		// be aware! infinite pool of threads!
 		server.setExecutor(Executors.newCachedThreadPool());
