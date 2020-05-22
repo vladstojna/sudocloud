@@ -1,5 +1,10 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
+import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
+import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
+import com.amazonaws.services.cloudwatch.model.Datapoint;
+import com.amazonaws.services.cloudwatch.model.GetMetricStatisticsRequest;
+import com.amazonaws.services.cloudwatch.model.GetMetricStatisticsResult;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
@@ -21,6 +26,9 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.auth.profile.ProfilesConfigFile;
 
+import java.util.Arrays;
+import java.util.Date;
+
 /**
  * Autoscaler component. Runs in a background thread
  *
@@ -34,17 +42,28 @@ public class ScalerThread extends Thread {
     static final String WORKER_AMI_ID = "ami-004f6abe9e4e405ad";
     static final String SECURITY_GROUP = "CNV-ssh+http";
     static final String EC2_REGION = "us-east-1";
+    
+    // in seconds
+    static final int CW_PERIOD = 30;
+    static final int CW_OFFSET = 60;
 
     private AmazonEC2 ec2;
 
     private LoadBalancer lb;
-
-    public ScalerThread(LoadBalancer lb) {
+    
+    private AmazonCloudWatch cw;
+	
+	public ScalerThread(LoadBalancer lb) {
 	this.lb = lb;
 	ec2 = AmazonEC2ClientBuilder
 	    .standard()
 	    .withRegion(EC2_REGION)
 	    .build();
+	this.cw = AmazonCloudWatchClientBuilder
+			.standard()
+			.withRegion(EC2_REGION)
+			.build();
+	this.getCloudWatchStatistics();
     }
 
     public void run() {
@@ -83,5 +102,21 @@ public class ScalerThread extends Thread {
 	this.lb.addInstance(new WorkerInstanceHolder(instance));
 
 	Log.i(LOG_TAG, String.format("Successfully started EC2 instance %s based on AMI %s", reservation_id, WORKER_AMI_ID));
+    }
+    
+    public void getCloudWatchStatistics() {
+    	long currentTime = new Date().getTime();
+	    GetMetricStatisticsRequest request = new GetMetricStatisticsRequest()
+			    .withStartTime(new Date(currentTime - (CW_OFFSET * 1000)))
+			    .withNamespace("AWS/EC2")
+			    .withPeriod(CW_PERIOD)
+			    .withMetricName("CPUUtilization")
+			    .withStatistics("Average")
+			    .withEndTime(new Date(currentTime));
+	    GetMetricStatisticsResult getMetricStatisticsResult = this.cw.getMetricStatistics(request);
+	
+	    for (Datapoint dp : getMetricStatisticsResult.getDatapoints()) {
+		    System.out.println(dp.getTimestamp() + " : " + dp.getAverage());
+	    }
     }
 }
