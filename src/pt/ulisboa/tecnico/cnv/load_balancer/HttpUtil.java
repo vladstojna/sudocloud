@@ -28,12 +28,12 @@ public class HttpUtil {
 	 * instance). For this reason the code is converting from
 	 * HTTPExchange to HttpUrlConnection and back.
 	 **/
-	public static void proxyRequest(HttpExchange t, String serverAddress) throws IOException {
+	public static void proxyRequest(HttpExchange t, String serverAddress, int serverPort) throws IOException {
 
 		HttpURLConnection connection = null;
 
 		try {
-			URL url = new URL("http://" + serverAddress + t.getRequestURI());
+			URL url = new URL("http://" + serverAddress + ":" + serverPort + t.getRequestURI());
 
 			// LoadBalancer to act as client of Worker instance;
 			// initiates a connection to said worker
