@@ -2,6 +2,10 @@ package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+
+import pt.ulisboa.tecnico.cnv.load_balancer.request.QueryParameters;
+import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
+
 import java.io.IOException;
 
 class WebServerSudokuHandler implements HttpHandler {
@@ -14,19 +18,16 @@ class WebServerSudokuHandler implements HttpHandler {
 
 	public void handle(final HttpExchange t) throws IOException {
 
-		/*
+		final String query = t.getRequestURI().getQuery();
 
-		Request request = new Request.Builder()
-			.withHttpExchange(t)
-			.withCallback(lb)
-			.build();
+		QueryParameters queryParams = new QueryParameters(query);
+		Request request = new Request(query, queryParams);
 
-		// Request loadbalancer an instance to run the request on
-		WorkerInstanceHolder instance = lb.getWorkerInstance();
+		WorkerInstanceHolder instanceHolder = lb.chooseInstance(request);
 
-		request.assignToInstance(instance);
-		request.process();
+		HttpUtil.proxyRequest(t, instanceHolder.getInstance().getPublicIpAddress(),
+			lb.getWorkerInstanceConfig().getPort());
 
-		*/
+		lb.removeRequest(instanceHolder, request);
 	}
 }
