@@ -207,7 +207,7 @@ public class LoadBalancer {
 			cost = 100000000L;
 		} else {
 			Log.i(LOG_TAG, "Found - request " + request);
-			AttributeValue attrValue = items.getOrDefault(dynamoDBConfig.getValueName(), null);
+			AttributeValue attrValue = items.get(dynamoDBConfig.getValueName());
 			if (attrValue == null) {
 				throw new RuntimeException("Item found but \"" + dynamoDBConfig.getValueName() + "\" not found!");
 			}
