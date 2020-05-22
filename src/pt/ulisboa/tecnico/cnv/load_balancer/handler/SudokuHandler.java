@@ -8,10 +8,13 @@ import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.QueryParameters;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.HttpUtil;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 import java.io.IOException;
 
 public class SudokuHandler implements HttpHandler {
+
+	private static final String LOG_TAG = SudokuHandler.class.getSimpleName();
 
 	private final LoadBalancer lb;
 
@@ -22,6 +25,8 @@ public class SudokuHandler implements HttpHandler {
 	public void handle(final HttpExchange t) throws IOException {
 
 		final String query = t.getRequestURI().getQuery();
+
+		Log.i(LOG_TAG, "> Query: " + query);
 
 		QueryParameters queryParams = new QueryParameters(query);
 		Request request = new Request(query, queryParams);

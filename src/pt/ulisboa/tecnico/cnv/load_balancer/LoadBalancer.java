@@ -95,7 +95,12 @@ public class LoadBalancer {
 				.withReadCapacityUnits(dynamoDBConfig.getReadCapacity())
 				.withWriteCapacityUnits(dynamoDBConfig.getWriteCapacity()));
 
-		TableUtils.createTableIfNotExists(dynamoDB, createTableRequest);
+		boolean result = TableUtils.createTableIfNotExists(dynamoDB, createTableRequest);
+		if (result) {
+			Log.i(LOG_TAG, "Created new table, did not exist previously");
+		} else {
+			Log.i(LOG_TAG, "Table already exists");
+		}
 		try {
 			TableUtils.waitUntilActive(dynamoDB, dynamoDBConfig.getTableName());
 		} catch (Exception e) {
@@ -156,6 +161,7 @@ public class LoadBalancer {
 		}
 
 		if (!stoppedInstanceIds.isEmpty()) {
+			Log.i(LOG_TAG, "Starting stopped instances");
 			StartInstancesRequest startRequest = new StartInstancesRequest();
 			startRequest.withInstanceIds(stoppedInstanceIds);
 			ec2.startInstances(startRequest);
@@ -166,7 +172,7 @@ public class LoadBalancer {
 		return workerConfig;
 	}
 
-	private Map<String, AttributeValue> getKey(String keyValue) {
+	private Map<String, AttributeValue> getDynamoDBKey(String keyValue) {
 		Map<String, AttributeValue> map = new HashMap<>();
 		AttributeValue attributeValue = new AttributeValue().withS(keyValue);
 		map.put(dynamoDBConfig.getKeyName(), attributeValue);
@@ -176,7 +182,7 @@ public class LoadBalancer {
 	private Map<String, AttributeValue> getItem(String requestKey) {
 		GetItemRequest getRequest = new GetItemRequest(
 			dynamoDBConfig.getTableName(),
-			getKey(requestKey));
+			getDynamoDBKey(requestKey));
 		GetItemResult result = dynamoDB.getItem(getRequest);
 		return result.getItem();
 	}
@@ -187,11 +193,14 @@ public class LoadBalancer {
 		// if no entry found in DB, predict cost
 		long cost;
 		if (items.isEmpty()) {
+			Log.i(LOG_TAG, "Request " + request + " not found");
 			cost = 100000000L;
 		} else {
+			Log.i(LOG_TAG, "Request " + request + " found");
 			cost = Long.parseLong(items.get(dynamoDBConfig.getValueName()).getN());
 		}
 		request.setCost(cost);
+		Log.i(LOG_TAG, "Updated cost for request " + request);
 	}
 
 	public void addInstance(Instance instance) {
@@ -199,9 +208,11 @@ public class LoadBalancer {
 	}
 
 	public WorkerInstanceHolder chooseInstance(Request request) {
+		Log.i(LOG_TAG, "Choose instance for request: " + request);
 		getAndUpdateCost(request);
 		synchronized (skipListLock) {
 			WorkerInstanceHolder holder = instances.pollFirst();
+			Log.i(LOG_TAG, "Instance chosen: " + holder);
 			holder.addRequest(request);
 			instances.add(holder);
 			return holder;
@@ -209,10 +220,12 @@ public class LoadBalancer {
 	}
 
 	public void removeRequest(WorkerInstanceHolder holder, Request request) {
+		Log.i(LOG_TAG, "Remove request: " + request);
 		synchronized (skipListLock) {
 			instances.remove(holder);
 			holder.removeRequest(request.getId());
 			instances.add(holder);
+			Log.i(LOG_TAG, "Instance after removal: " + holder);
 		}
 	}
 
