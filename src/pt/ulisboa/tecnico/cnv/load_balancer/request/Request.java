@@ -77,9 +77,8 @@ public class Request {
 
 	@Override
 	public String toString() {
-		return "Request [id=" + id +
+		return "[id=" + id +
 			", query=" + query +
-			", queryParameters=" + queryParameters +
 			", cost=" + cost + "]";
 	}
 
