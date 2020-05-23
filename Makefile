@@ -61,6 +61,8 @@ webserver: assert-ec2 ## provision webserver
 	$(BASE_DIR)/scripts/provision-java7.sh
 	$(BASE_DIR)/scripts/config-bit.sh
 	$(BASE_DIR)/scripts/kill-running-server.sh $(WS_PORT)
+	sudo cp -r $(BASE_DIR)/scripts/rc.local_worker /etc/rc.d/rc.local
+	sudo chmod +x /etc/rc.d/rc.local
 	AWS_CREDENTIALS=$(BASE_DIR)/aws_credentials $(BASE_DIR)/scripts/provision-aws-sdk.sh
 	cd $(BASE_DIR); make run
 
@@ -95,6 +97,7 @@ SDK_DIR = $(HOME)/aws-java-sdk
 
 BASEDIR = $(shell pwd)
 SOURCE = $(BASEDIR)/src
+RESOURCES = $(shell find $(SOURCE)/resources -type f -name "*.properties")
 TARGET = $(BASEDIR)/target
 
 PROJECT_SRC = $(SOURCE)/pt/ulisboa/tecnico/cnv
@@ -110,6 +113,7 @@ sources = $(shell find $(SOURCE) -type f -name "*.java")
 compile: ## compile project
 	@echo "*** Compiling project"
 	@mkdir -p $(TARGET)
+	@cp $(RESOURCES) $(TARGET)
 	@javac -cp "$(CLASSPATH)" -d $(TARGET) $(sources)
 
 clean: ## clean project (generated class files)
@@ -132,17 +136,18 @@ run-raw: compile ## run worker server without instrumented solvers
 #----------------------------------#
 #  basic loadbalancer compilation  #
 #----------------------------------#
-LB_MAIN_CLASS=pt.ulisboa.tecnico.cnv.load_balancer.WebServer
-LB_SDK_DIR=$(HOME)/aws-java-sdk
-LB_CP=$(TARGET):$(LB_SDK_DIR)/lib/aws-java-sdk.jar:$(LB_SDK_DIR)/third-party/lib/*:$(BASE_DIR)/lib/*
+LB_MAIN_CLASS = pt.ulisboa.tecnico.cnv.load_balancer.WebServer
+
+sources-lb = $(shell find $(PROJECT_SRC)/load_balancer -type f -name "*.java")
 
 compile-lb: ## compile load balancer
 	@echo "*** Compiling project"
 	@mkdir -p $(TARGET)
-	javac -cp "$(LB_CP)" -d $(TARGET) $(BASE_DIR)/src/pt/ulisboa/tecnico/cnv/load_balancer/*.java
+	@cp $(RESOURCES) $(TARGET)
+	javac -cp "$(CLASSPATH)" -d $(TARGET) $(sources-lb)
 
 run-lb: compile-lb ## run load-balancer
 	@echo "*** forwarding :80 -> :$(LB_PORT) (in order to run java as regular user)"
 	sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port $(LB_PORT)
 	@echo "*** Running load balancer"
-	java $(JFLAGS) -cp "$(LB_CP)" $(LB_MAIN_CLASS)
+	java $(JFLAGS) -cp "$(CLASSPATH)" $(LB_MAIN_CLASS)

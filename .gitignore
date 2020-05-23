@@ -7,8 +7,10 @@
 # ignore class files
 target/
 
-# ignore metrics output
+# ignore properties files
+*.properties
 
+# ignore metrics output
 metrics.txt
 
 # ignore sensitive AWS credentials file

@@ -1,0 +1,12 @@
+# worker instance configuration
+
+port=8000
+image=ami-0323c3dd2da7fb37d
+type=t2.micro
+region=us-east-1
+
+tagKey=type
+tagValue=worker
+
+keyName=default-key-name
+securityGroup=default-security-group

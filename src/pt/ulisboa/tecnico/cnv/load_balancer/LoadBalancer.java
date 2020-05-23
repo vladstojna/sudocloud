@@ -1,92 +1,246 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListSet;
+
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
+import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
+import com.amazonaws.services.dynamodbv2.model.GetItemResult;
+import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
+import com.amazonaws.services.dynamodbv2.model.KeyType;
+import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
+import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
+import com.amazonaws.services.dynamodbv2.util.TableUtils;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Filter;
-import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.Reservation;
+import com.amazonaws.services.ec2.model.RunInstancesRequest;
+import com.amazonaws.services.ec2.model.RunInstancesResult;
+import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.ec2.model.Tag;
-import com.amazonaws.SdkClientException;
+import com.amazonaws.services.ec2.model.TagSpecification;
 
-import java.util.List;
-import java.util.ArrayList;
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
+import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 public class LoadBalancer {
 
-    static final String LOG_TAG = LoadBalancer.class.getSimpleName();
+	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
-    public final static AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
+	private final DynamoDBConfig dynamoDBConfig;
+	private final WorkerInstanceConfig workerConfig;
 
-    public static List<Request> runningRequests = new ArrayList<>();
-    private static List<WorkerInstanceHolder> workerInstances = new ArrayList<>();
+	private final AmazonDynamoDB dynamoDB;
+	private final AmazonEC2 ec2;
 
-    private LoadBalancer() {}
+	private final Object skipListLock = new Object();
+	private final ConcurrentSkipListSet<WorkerInstanceHolder> instances;
 
-    public static void init() {
-	initRunningWorkerInstances();
-	Log.i(LOG_TAG, "Loadbalancer initialized");
-    }
-
-    /**
-     * Obtains the instance that should be used for the next operation
-     **/
-    public static WorkerInstanceHolder getWorkerInstance() {
-	return workerInstances.get(0);
-    }
-
-    /**
-     * Informs the loadbalancer that a request has started processing
-     **/
-    public static void startedProcessing(Request request) {
-	Log.i(LOG_TAG, String.format("Added request %d to list of processing requests", request.getId()));
-	runningRequests.add(request);
-	Log.i("Running requests: " + runningRequests.size());
-    }
-
-    /**
-     * Informs the loadbalancer that the request has finished processing
-     **/
-    public static void finishedProcessing(Request request) {
-	runningRequests.remove(request);
-	Log.i("Running requests: " + runningRequests.size());
-    }
-
-    /**
-     * Find the worker instances and adds them to 
-     *
-     * They are tagged with the tag "type:worker"
-     **/
-    private static void initRunningWorkerInstances() {
-	Log.i(LOG_TAG, "Initial worker instance lookup");
-	try {
-	    //Create the Filter to use to find running instances
-	    Filter filter = new Filter("tag:type");
-	    filter.withValues("worker");
-
-	    //Create a DescribeInstancesRequest
-	    DescribeInstancesRequest request = new DescribeInstancesRequest();
-	    request.withFilters(filter);
-
-	    // Find the running instances
-	    DescribeInstancesResult response = ec2.describeInstances(request);
-
-	    for (Reservation reservation : response.getReservations()){
-		for (Instance instance : reservation.getInstances()) {
-		    workerInstances.add(new WorkerInstanceHolder(instance));
-		    Log.i(LOG_TAG, "Found worker instance with id " +
-				       instance.getInstanceId());
+	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc) {
+		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
+		try {
+			credentialsProvider.getCredentials();
+		} catch (Exception e) {
+			throw new AmazonClientException(
+				"Cannot load the credentials from the credential profiles file. " +
+				"Please make sure that your credentials file is at the correct " +
+				"location (~/.aws/credentials), and is in valid format.", e);
 		}
-	    }
+		dynamoDBConfig = dc;
+		workerConfig = wc;
+		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.TotalCostComparator());
 
-	} catch (SdkClientException e) {
-	    e.getStackTrace();
+		ec2 = AmazonEC2ClientBuilder.standard()
+			.withCredentials(credentialsProvider)
+			.withRegion(workerConfig.getRegion())
+			.build();
+
+		dynamoDB = AmazonDynamoDBClientBuilder.standard()
+			.withCredentials(credentialsProvider)
+			.withRegion(dynamoDBConfig.getRegion())
+			.build();
+
+		createTableIfNotExists();
+		getOrCreateWorkerInstances();
+
+		Log.i(LOG_TAG, "initialized");
 	}
 
-	if (workerInstances.size() == 0) {
-	    Log.i(LOG_TAG, "No running worker instance was found");
-	    Log.i(LOG_TAG, "Maybe you forgot to tag them with 'type:worker'");
+	private void createTableIfNotExists() {
+		CreateTableRequest createTableRequest = new CreateTableRequest()
+			.withTableName(dynamoDBConfig.getTableName())
+			.withKeySchema(new KeySchemaElement()
+				.withAttributeName(dynamoDBConfig.getKeyName())
+				.withKeyType(KeyType.HASH))
+			.withAttributeDefinitions(new AttributeDefinition()
+				.withAttributeName(dynamoDBConfig.getKeyName())
+				.withAttributeType(ScalarAttributeType.S))
+			.withProvisionedThroughput(new ProvisionedThroughput()
+				.withReadCapacityUnits(dynamoDBConfig.getReadCapacity())
+				.withWriteCapacityUnits(dynamoDBConfig.getWriteCapacity()));
+
+		boolean result = TableUtils.createTableIfNotExists(dynamoDB, createTableRequest);
+		if (result) {
+			Log.i(LOG_TAG, "Created new table, did not exist previously");
+		} else {
+			Log.i(LOG_TAG, "Table already exists");
+		}
+		try {
+			TableUtils.waitUntilActive(dynamoDB, dynamoDBConfig.getTableName());
+		} catch (Exception e) {
+			throw new AmazonClientException("Table creation error", e);
+		}
 	}
-    }
+
+	/**
+	 * Find the running or stopped worker instances and registers them.
+	 * Starts stopped instances.
+	 * If no instances found, create a new one.
+	 * They are tagged with the tag "type:worker"
+	 **/
+	private void getOrCreateWorkerInstances() {
+		Log.i(LOG_TAG, "Initial worker instance lookup");
+
+		Filter tagFilter = new Filter("tag:" + workerConfig.getTagKey())
+			.withValues(workerConfig.getTagValue());
+		Filter statusFilter = new Filter("instance-state-name")
+			.withValues("running", "stopped");
+
+		DescribeInstancesRequest request = new DescribeInstancesRequest()
+			.withFilters(tagFilter, statusFilter);
+
+		// Find the running instances
+		DescribeInstancesResult response = ec2.describeInstances(request);
+
+		// If no worker instances, create one
+		if (response.getReservations().isEmpty()) {
+			RunInstancesRequest runRequest = new RunInstancesRequest();
+			runRequest.withImageId(workerConfig.getImageId())
+				.withTagSpecifications(new TagSpecification()
+					.withResourceType("instance")
+					.withTags(new Tag(workerConfig.getTagKey(), workerConfig.getTagValue())))
+				.withInstanceType(workerConfig.getType())
+				.withMinCount(1)
+				.withMaxCount(1)
+				.withKeyName(workerConfig.getKeyName())
+				.withSecurityGroups(workerConfig.getSecurityGroup());
+			RunInstancesResult runResult = ec2.runInstances(runRequest);
+			Instance inst = runResult.getReservation().getInstances().get(0);
+			instances.add(new WorkerInstanceHolder(inst));
+			Log.i(LOG_TAG, "No worker instances found, created one with id " + inst.getInstanceId());
+			return;
+		}
+
+		List<String> stoppedInstanceIds = new ArrayList<>();
+		for (Reservation reservation : response.getReservations()) {
+			for (Instance instance : reservation.getInstances()) {
+				if (instance.getState().getName().equals("stopped")) {
+					stoppedInstanceIds.add(instance.getInstanceId());
+					Log.i(LOG_TAG, "Found STOPPED worker instance with id " + instance.getInstanceId());
+				} else {
+					Log.i(LOG_TAG, "Found RUNNING worker instance with id " + instance.getInstanceId());
+				}
+				instances.add(new WorkerInstanceHolder(instance));
+			}
+		}
+
+		if (!stoppedInstanceIds.isEmpty()) {
+			Log.i(LOG_TAG, "Starting stopped instances");
+			StartInstancesRequest startRequest = new StartInstancesRequest();
+			startRequest.withInstanceIds(stoppedInstanceIds);
+			ec2.startInstances(startRequest);
+		}
+	}
+
+	public WorkerInstanceConfig getWorkerInstanceConfig() {
+		return workerConfig;
+	}
+
+	/**
+	 * Converts a raw key value into a dynamoDB key
+	 * @param keyValue the raw key value
+	 * @return dynamoDB key
+	 */
+	private Map<String, AttributeValue> getDynamoDBKey(String keyValue) {
+		Map<String, AttributeValue> map = new HashMap<>();
+		AttributeValue attributeValue = new AttributeValue().withS(keyValue);
+		map.put(dynamoDBConfig.getKeyName(), attributeValue);
+		return map;
+	}
+
+	/**
+	 * Gets an item from dynamoDB.
+	 * @param requestKey the raw key value
+	 * @return the item or null if not found
+	 */
+	private Map<String, AttributeValue> getItem(String requestKey) {
+		GetItemRequest getRequest = new GetItemRequest(
+			dynamoDBConfig.getTableName(),
+			getDynamoDBKey(requestKey));
+		GetItemResult result = dynamoDB.getItem(getRequest);
+		return result.getItem();
+	}
+
+	// TODO implement predictor
+	private void getAndUpdateCost(Request request) {
+		Map<String, AttributeValue> items = getItem(request.getQuery());
+		// if no entry found in DB, predict cost
+		long cost;
+		if (items == null) {
+			Log.i(LOG_TAG, "Not found - request " + request);
+			cost = 100000000L;
+		} else {
+			Log.i(LOG_TAG, "Found - request " + request);
+			AttributeValue attrValue = items.get(dynamoDBConfig.getValueName());
+			if (attrValue == null) {
+				throw new RuntimeException("Item found but \"" + dynamoDBConfig.getValueName() + "\" not found!");
+			}
+			cost = Long.parseLong(items.get(dynamoDBConfig.getValueName()).getN());
+		}
+		request.setCost(cost);
+		Log.i(LOG_TAG, "Updated cost for request " + request);
+	}
+
+	public void addInstance(Instance instance) {
+		instances.add(new WorkerInstanceHolder(instance));
+	}
+
+	public WorkerInstanceHolder chooseInstance(Request request) {
+		Log.i(LOG_TAG, "Choose instance for request: " + request);
+		getAndUpdateCost(request);
+		synchronized (skipListLock) {
+			WorkerInstanceHolder holder = instances.pollFirst();
+			holder.addRequest(request);
+			instances.add(holder);
+			Log.i(LOG_TAG, "Instance chosen: " + holder);
+			return holder;
+		}
+	}
+
+	public void removeRequest(WorkerInstanceHolder holder, Request request) {
+		Log.i(LOG_TAG, "Remove request: " + request);
+		synchronized (skipListLock) {
+			instances.remove(holder);
+			holder.removeRequest(request.getId());
+			instances.add(holder);
+			Log.i(LOG_TAG, "Instance after removal: " + holder);
+		}
+	}
+
 }

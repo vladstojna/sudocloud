@@ -1,0 +1,13 @@
+# dynamoDB configuration
+
+# table metadata
+tableName=metrics-table
+region=us-east-1
+
+# name of the key and value fields
+keyName=query
+valueName=cost
+
+# maximum strongly consistent reads/writes per second
+readCapacity=10
+writeCapacity=10
