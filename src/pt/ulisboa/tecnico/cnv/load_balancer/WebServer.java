@@ -68,7 +68,7 @@ public class WebServer {
 		PredictorConfig predictorConfig = getPredictorConfig();
 
 		// Intialize loadbalancer
-		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig);
+		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig, predictorConfig);
 
 		// start autoscaler thread
 		// ScalerThread scaler = new ScalerThread(lb);
