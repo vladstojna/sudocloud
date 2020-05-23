@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.amazonaws.AmazonClientException;
@@ -34,8 +36,10 @@ import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.ec2.model.TagSpecification;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
+import pt.ulisboa.tecnico.cnv.load_balancer.predictor.StochasticGradientDescent3D;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
@@ -45,14 +49,16 @@ public class LoadBalancer {
 
 	private final DynamoDBConfig dynamoDBConfig;
 	private final WorkerInstanceConfig workerConfig;
+	private final PredictorConfig predictorConfig;
 
 	private final AmazonDynamoDB dynamoDB;
 	private final AmazonEC2 ec2;
 
 	private final Object skipListLock = new Object();
 	private final ConcurrentSkipListSet<WorkerInstanceHolder> instances;
+	private final ConcurrentMap<String, StochasticGradientDescent3D> predictors;
 
-	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc) {
+	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc, PredictorConfig pc) {
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 		try {
 			credentialsProvider.getCredentials();
@@ -64,7 +70,9 @@ public class LoadBalancer {
 		}
 		dynamoDBConfig = dc;
 		workerConfig = wc;
+		predictorConfig = pc;
 		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.TotalCostComparator());
+		predictors = new ConcurrentHashMap<>();
 
 		ec2 = AmazonEC2ClientBuilder.standard()
 			.withCredentials(credentialsProvider)
@@ -197,14 +205,42 @@ public class LoadBalancer {
 		return result.getItem();
 	}
 
-	// TODO implement predictor
+	/**
+	 * Gets or adds predictor from map
+	 * @param key the map key
+	 * @return the predictor found
+	 */
+	private StochasticGradientDescent3D getOrAddPredictor(String key) {
+		StochasticGradientDescent3D predictor = predictors.get(key);
+		if (predictor == null) {
+			predictor = new StochasticGradientDescent3D(predictorConfig);
+			StochasticGradientDescent3D prev = predictors.putIfAbsent(key, predictor);
+			if (prev != null) {
+				predictor = prev;
+			}
+		}
+		return predictor;
+	}
+
+	/**
+	 * Retrieves request cost from dynamoDB if it exists, otherwise
+	 * tries to make a prediction. Updates the request cost.
+	 * @param request the request for which to retrieve and update the cost
+	 */
 	private void getAndUpdateCost(Request request) {
 		Map<String, AttributeValue> items = getItem(request.getQuery());
-		// if no entry found in DB, predict cost
+
+		StochasticGradientDescent3D predictor = getOrAddPredictor(
+			request.getQueryParameters().getSolverStrategy());
+
 		long cost;
+
 		if (items == null) {
 			Log.i(LOG_TAG, "Not found - request " + request);
-			cost = 100000000L;
+			synchronized (predictor) {
+				cost = (long) predictor.getPrediction(request.getQueryParameters());
+			}
+			request.setCost(cost);
 		} else {
 			Log.i(LOG_TAG, "Found - request " + request);
 			AttributeValue attrValue = items.get(dynamoDBConfig.getValueName());
@@ -212,8 +248,11 @@ public class LoadBalancer {
 				throw new RuntimeException("Item found but \"" + dynamoDBConfig.getValueName() + "\" not found!");
 			}
 			cost = Long.parseLong(items.get(dynamoDBConfig.getValueName()).getN());
+			request.setCost(cost);
+			synchronized (predictor) {
+				predictor.feed(request);
+			}
 		}
-		request.setCost(cost);
 		Log.i(LOG_TAG, "Updated cost for request " + request);
 	}
 

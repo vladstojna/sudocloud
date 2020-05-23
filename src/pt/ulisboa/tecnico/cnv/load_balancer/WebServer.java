@@ -8,6 +8,7 @@ import java.util.concurrent.Executors;
 import com.sun.net.httpserver.HttpServer;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.StatusHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.SudokuHandler;
@@ -48,13 +49,26 @@ public class WebServer {
 		}
 	}
 
+	private static PredictorConfig getPredictorConfig() throws Exception {
+		Properties props = new Properties();
+		try (InputStream is = WebServer.class.getClassLoader().getResourceAsStream("predictor.properties")) {
+			props.load(is);
+			return new PredictorConfig(
+				Double.parseDouble(props.getProperty("weightOne")),
+				Double.parseDouble(props.getProperty("weightTwo")),
+				Double.parseDouble(props.getProperty("bias")),
+				Double.parseDouble(props.getProperty("learningRate")));
+		}
+	}
+
 	public static void main(final String[] args) throws Exception {
 
 		DynamoDBConfig dynamoDBConfig = getDynamoDBConfig();
 		WorkerInstanceConfig workerConfig = getWorkerInstanceConfig();
+		PredictorConfig predictorConfig = getPredictorConfig();
 
 		// Intialize loadbalancer
-		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig);
+		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig, predictorConfig);
 
 		// start autoscaler thread
 		// ScalerThread scaler = new ScalerThread(lb);

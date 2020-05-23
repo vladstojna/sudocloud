@@ -1,0 +1,6 @@
+# cost predictor configuration
+
+weightOne=100000
+weightTwo=100000
+bias=0
+learningRate=0.0000015
