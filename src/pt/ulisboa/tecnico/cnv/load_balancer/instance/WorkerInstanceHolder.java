@@ -26,7 +26,7 @@ public class WorkerInstanceHolder {
 			if (o1.getTotalCost() < o2.getTotalCost())
 				return -1;
 			if (o1.getTotalCost() == o2.getTotalCost())
-				return 0;
+				return o1.equals(o2) == true ? 0 : 1;
 			return 1;
 		}
 	}
