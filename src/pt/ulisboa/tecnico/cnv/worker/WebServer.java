@@ -12,6 +12,9 @@ public class WebServer {
 
 	public static void main(final String[] args) throws Exception {
 
+		HeartbeatThread heartbeatThread = new HeartbeatThread();
+		heartbeatThread.start();
+
 		final HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
 
 		ResultHandler dynamoHandler = new DynamoHandler("metrics-table", "us-east-1");
