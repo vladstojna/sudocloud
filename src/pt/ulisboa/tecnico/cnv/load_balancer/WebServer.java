@@ -14,6 +14,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.StatusHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.SudokuHandler;
+import pt.ulisboa.tecnico.cnv.load_balancer.scaling.metric.Median;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 /**
@@ -87,8 +88,9 @@ public class WebServer {
 		PredictorConfig predictorConfig = getPredictorConfig();
 		AutoScalerConfig autoScalerConfig = getAutoScalerConfig();
 
-		// Intialize loadbalancer
 		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig, predictorConfig);
+		// FIXME: null parameter
+		AutoScaler autoScaler = new AutoScaler(autoScalerConfig, workerConfig, null, new Median());
 
 		// start autoscaler thread
 		// ScalerThread scaler = new ScalerThread(lb);
