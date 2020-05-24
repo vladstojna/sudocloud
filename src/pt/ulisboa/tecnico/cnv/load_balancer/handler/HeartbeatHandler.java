@@ -24,16 +24,21 @@ public class HeartbeatHandler implements HttpHandler {
 
 	private final LoadBalancer lb;
 
+	// interface to be implemented by loadbalancer
+	public interface Callback {
+		void workerHeartbeat(String workerId);
+	}
+
 	public HeartbeatHandler(LoadBalancer lb) {
 		this.lb = lb;
 	}
 
 	public void handle(final HttpExchange t) throws IOException {
 		final String query = t.getRequestURI().getQuery();
-
 		QueryParameters queryParams = new QueryParameters(query);
 
-		Log.i(LOG_TAG, "Heartbeat from worker " + queryParams.getWorkerId());
+		final String workerId = queryParams.getWorkerId();
+		lb.workerHeartbeat(workerId);
 
 		// send response
 		t.sendResponseHeaders(200, "OK".length());

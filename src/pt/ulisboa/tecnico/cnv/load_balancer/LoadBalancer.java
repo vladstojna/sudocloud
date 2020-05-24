@@ -50,7 +50,9 @@ import pt.ulisboa.tecnico.cnv.load_balancer.predictor.StochasticGradientDescent3
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-public class LoadBalancer {
+import pt.ulisboa.tecnico.cnv.load_balancer.handler.HeartbeatHandler;
+
+public class LoadBalancer implements  HeartbeatHandler.Callback {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -68,6 +70,7 @@ public class LoadBalancer {
 	private final ConcurrentMap<String, StochasticGradientDescent3D> predictors;
 
 	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc, PredictorConfig pc) {
+
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 
 		try {
@@ -338,4 +341,10 @@ public class LoadBalancer {
 		}
 	}
 
+	/**
+	 * Handler for when worker's heartbeat is received
+	 **/
+	public void workerHeartbeat(String workerId) {
+		Log.i(LOG_TAG, "Heartbeat from worker " + workerId);
+	}
 }
