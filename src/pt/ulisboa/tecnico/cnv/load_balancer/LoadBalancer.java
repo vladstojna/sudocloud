@@ -148,9 +148,8 @@ public class LoadBalancer implements  HeartbeatHandler.Callback {
 			RunInstancesRequest runRequest = new RunInstancesRequest();
 			runRequest.withImageId(workerConfig.getImageId())
 				.withTagSpecifications(new TagSpecification()
-						       .withResourceType("instance")
-						       .withTags(new Tag(workerConfig.getTagKey(), workerConfig.getTagValue()),
-								 new Tag("loadbalancer_ip", getLoadbalancerIP())))
+					.withResourceType("instance")
+					.withTags(new Tag(workerConfig.getTagKey(), workerConfig.getTagValue())))
 				.withInstanceType(workerConfig.getType())
 				.withMinCount(1)
 				.withMaxCount(1)
