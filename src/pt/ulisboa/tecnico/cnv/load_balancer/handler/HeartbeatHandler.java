@@ -11,11 +11,16 @@ import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.HttpUtil;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+
+
+
 
 public class HeartbeatHandler implements HttpHandler {
 
-	private static final String LOG_TAG = SudokuHandler.class.getSimpleName();
+	private static final String LOG_TAG = HeartbeatHandler.class.getSimpleName();
 
 	private final LoadBalancer lb;
 
@@ -24,24 +29,13 @@ public class HeartbeatHandler implements HttpHandler {
 	}
 
 	public void handle(final HttpExchange t) throws IOException {
-		Log.i("> Health Check");
-
 		final String query = t.getRequestURI().getQuery();
 
-		Log.i(LOG_TAG, "> Query: " + query);
+		QueryParameters queryParams = new QueryParameters(query);
 
+		Log.i(LOG_TAG, "Heartbeat from worker " + queryParams.getWorkerId());
 
-		// Send response to browser.
-		final Headers hdrs = t.getResponseHeaders();
-
-		hdrs.add("Content-Type", "text/html");
-
-		hdrs.add("Access-Control-Allow-Origin", "*");
-
-		hdrs.add("Access-Control-Allow-Credentials", "true");
-		hdrs.add("Access-Control-Allow-Methods", "GET");
-		hdrs.add("Access-Control-Allow-Headers", "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers");
-
+		// send response
 		t.sendResponseHeaders(200, "OK".length());
 
 		final OutputStream os = t.getResponseBody();
@@ -51,7 +45,35 @@ public class HeartbeatHandler implements HttpHandler {
 		osw.close();
 
 		os.close();
-
-		Log.i("> Sent response to " + t.getRemoteAddress().toString());
 	}
+
+	static class QueryParameters {
+		private String workerId;
+
+		public QueryParameters(String query) {
+			parseQuery(query);
+		}
+
+		private void parseQuery(String query) {
+			final String[] params = query.split("&");
+			for (final String p : params) {
+				final String[] splitParam = p.split("=");
+				final String key = splitParam[0];
+				final String value = splitParam[1];
+
+				switch(key) {
+				case "workerId":
+					workerId = value;
+					break;
+				case "default":
+					Log.i(LOG_TAG, "Unrecognized parameter");
+				}
+			}
+		}
+
+		public String getWorkerId() {
+			return workerId;
+		}
+	}
+
 }
