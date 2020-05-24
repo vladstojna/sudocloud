@@ -57,15 +57,15 @@ public class AutoScaler {
 	
 	public void startInstances(int numberInstances) {
 		Log.i(LOG_TAG, "Starting " + numberInstances + " new worker instance");
-		Tag worker_tag = new Tag()
+		Tag tag = new Tag()
 				.withKey("type")
 				.withValue("worker");
 		TagSpecification tagSpecification = new TagSpecification()
-				.withTags(worker_tag)
+				.withTags(tag)
 				.withResourceType(ResourceType.Instance);
 		RunInstancesRequest request = new RunInstancesRequest()
 				.withImageId(WORKER_AMI_ID)
-				.withInstanceType(InstanceType.T1Micro)
+				.withInstanceType(InstanceType.T2Micro)
 				.withMaxCount(numberInstances)
 				.withMinCount(numberInstances)
 				.withSecurityGroups(SECURITY_GROUP)
@@ -80,9 +80,9 @@ public class AutoScaler {
 	public void terminateInstance(WorkerInstanceHolder worker) {
 		String instanceId = worker.getId();
 		Log.i(LOG_TAG, "Terminating worker instance with id " + instanceId);
-		StopInstancesRequest request = new StopInstancesRequest()
-				.withInstanceIds(worker.getId());
-		this.ec2.stopInstances(request);
+		TerminateInstancesRequest request = new TerminateInstancesRequest()
+				.withInstanceIds(instanceId);
+		this.ec2.terminateInstances(request);
 		Log.i(LOG_TAG, String.format("Successfully terminated EC2 instance %s", instanceId));
 	}
 	
