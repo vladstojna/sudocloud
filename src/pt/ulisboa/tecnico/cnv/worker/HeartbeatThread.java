@@ -4,7 +4,12 @@ import java.lang.Thread;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.DataOutputStream;
+import java.io.BufferedWriter;
 import java.util.List;
 
 import com.amazonaws.services.ec2.AmazonEC2;
@@ -41,10 +46,51 @@ public class HeartbeatThread extends Thread {
 		}
 	}
 
+	/**
+	 * Sends a heartbeat to the respective endpoint on the loadbalancer
+	 **/
 	private void heartbeat() {
-		System.out.println("Heartbeat");
+
+		HttpURLConnection connection = null;
+
+		try {
+			String urlParameters = "?workerId=" + workerId;
+			URL url = new URL("http://" + loadbalancerIP + "/heartbeat" + urlParameters);
+
+			connection = (HttpURLConnection) url.openConnection();
+			connection.setRequestMethod("POST");
+			connection.setDoOutput(false);
+			connection.setRequestProperty("Content-Length",
+	Integer.toString(urlParameters.getBytes().length));
+
+			//Get Response
+			InputStream is = connection.getInputStream();
+			BufferedReader rd = new BufferedReader(new InputStreamReader(is));
+			StringBuilder response = new StringBuilder();
+			String line;
+			while ((line = rd.readLine()) != null) {
+				response.append(line);
+				response.append('\r');
+			}
+			rd.close();
+
+			System.out.println("Heartbeat " + response.toString());
+
+		} catch (Exception e) {
+			System.out.println("Failed to send heartbeat");
+			System.out.println(e.getMessage());
+
+		} finally {
+			if (connection != null) {
+				connection.disconnect();
+			}
+		}
+
 	}
 
+	/**
+	 * Obtains the workerID from the ec2 instance aws metadata endpoint
+	 **/
 	private String getWorkerId() {
 		String metadataURL = "http://169.254.169.254/latest/meta-data/instance-id";
 		StringBuilder result = new StringBuilder();
@@ -69,6 +115,10 @@ public class HeartbeatThread extends Thread {
 		return result.toString();
 	}
 
+	/**
+	 * Obtains the Loadbalancer's public IP address from a tag on the
+	 * worker machine.
+	 **/
 	private String getLoadbalancerIP() {
 		AmazonEC2 client = AmazonEC2ClientBuilder.standard().build();
 		DescribeTagsRequest request = new DescribeTagsRequest()
