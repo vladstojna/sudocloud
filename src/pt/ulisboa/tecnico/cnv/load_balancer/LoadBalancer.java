@@ -275,7 +275,7 @@ public class LoadBalancer {
 	public void enqueueRequest(Request request) throws InterruptedException {
 		getAndUpdateCost(request);
 		requests.add(request);
-		Log.i("Enqueued request " + request.getId());
+		Log.i("RequestQueue", "Enqueued request " + request.getId());
 	}
 
 	public WorkerInstanceHolder chooseInstance() throws InterruptedException {
@@ -287,8 +287,10 @@ public class LoadBalancer {
 			}
 
 			WorkerInstanceHolder holder = instances.pollFirst();
-			holder.addRequest(requests.poll());
+			Request request = requests.poll();
+			holder.addRequest(request);
 			instances.add(holder);
+			Log.i("RequestQueue", "Dequeued request " + request.getId());
 			Log.i(LOG_TAG, "Instance chosen: " + holder);
 
 			return holder;
