@@ -30,13 +30,15 @@ public class AutoScaler {
 	// important for statistics
 	AmazonCloudWatch cw;
 	
+	IEvaluationCallback evaluationCallback;
 	Iterable<WorkerInstanceHolder> workers;
 	// statistics mode
 	int mode;
 	double lowThreshold;
 	double highThreshold;
 	
-	public AutoScaler(Iterable<WorkerInstanceHolder> workers, int mode, double lowThreshold, double highThreshold) {
+	public AutoScaler(IEvaluationCallback evaluationCallback, Iterable<WorkerInstanceHolder> workers,
+	                  int mode, double lowThreshold, double highThreshold) {
 		this.ec2 = AmazonEC2ClientBuilder
 				.standard()
 				.withRegion(EC2_REGION)
@@ -45,17 +47,18 @@ public class AutoScaler {
 				.standard()
 				.withRegion(EC2_REGION)
 				.build();
+		this.evaluationCallback = evaluationCallback;
 		this.workers = workers;
 		this.mode = mode;
 		this.lowThreshold = lowThreshold;
 		this.highThreshold = highThreshold;
 	}
 	
-	public void startInstance() {
-		this.startInstances(1);
+	public WorkerInstanceHolder startInstance() {
+		return this.startInstances(1).get(0);
 	}
 	
-	public void startInstances(int numberInstances) {
+	public List<WorkerInstanceHolder> startInstances(int numberInstances) {
 		Log.i(LOG_TAG, "Starting " + numberInstances + " new worker instance");
 		Tag tag = new Tag()
 				.withKey("type")
@@ -73,20 +76,32 @@ public class AutoScaler {
 				.withTagSpecifications(tagSpecification);
 		
 		RunInstancesResult runInstancesResult = this.ec2.runInstances(request);
-		for (Instance instance : runInstancesResult.getReservation().getInstances())
+		List<WorkerInstanceHolder> newWorkers = new ArrayList<>();
+		for (Instance instance : runInstancesResult.getReservation().getInstances()) {
 			Log.i(LOG_TAG, String.format("Successfully started EC2 instance %s based on AMI %s", instance.getInstanceId(), WORKER_AMI_ID));
+			newWorkers.add(new WorkerInstanceHolder(instance));
+		}
+		return newWorkers;
 	}
 	
 	public void terminateInstance(WorkerInstanceHolder worker) {
-		String instanceId = worker.getId();
-		Log.i(LOG_TAG, "Terminating worker instance with id " + instanceId);
-		TerminateInstancesRequest request = new TerminateInstancesRequest()
-				.withInstanceIds(instanceId);
-		this.ec2.terminateInstances(request);
-		Log.i(LOG_TAG, String.format("Successfully terminated EC2 instance %s", instanceId));
+		List<WorkerInstanceHolder> workers = new ArrayList<>();
+		workers.add(worker);
+		this.terminateInstances(workers);
 	}
 	
-	public void evaluation() {
+	public void terminateInstances(List<WorkerInstanceHolder> workers) {
+		for (WorkerInstanceHolder worker : workers) {
+			String instanceId = worker.getId();
+			Log.i(LOG_TAG, "Terminating worker instance with id " + instanceId);
+			TerminateInstancesRequest request = new TerminateInstancesRequest()
+					.withInstanceIds(instanceId);
+			this.ec2.terminateInstances(request);
+			Log.i(LOG_TAG, String.format("Successfully terminated EC2 instance %s", instanceId));
+		}
+	}
+	
+	private void evaluation() {
 		Map<WorkerInstanceHolder, Double> statistics = new HashMap<>();
 		for (WorkerInstanceHolder worker : workers) {
 			GetMetricDataResult getMetricDataResult = cw.getMetricData(getMetricDataRequest(worker));
@@ -123,9 +138,12 @@ public class AutoScaler {
 				underloadWorkers.add(entry.getKey());
 		}
 		
-		// execute callback
-		// do something with overloadWorkers
-		// do something with underloadWorkers
+		if (overloadWorkers.size() > 0)
+			this.evaluationCallback.createInstance(startInstance());
+		if (underloadWorkers.size() > 0) {
+			for (WorkerInstanceHolder worker : underloadWorkers)
+				this.evaluationCallback.terminateInstance(worker);
+		}
 	}
 	
 	private GetMetricDataRequest getMetricDataRequest(WorkerInstanceHolder worker) {
