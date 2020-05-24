@@ -7,13 +7,13 @@ import com.sun.net.httpserver.HttpServer;
 import pt.ulisboa.tecnico.cnv.worker.result.DynamoHandler;
 import pt.ulisboa.tecnico.cnv.worker.result.FileHandler;
 import pt.ulisboa.tecnico.cnv.worker.result.ResultHandler;
+import pt.ulisboa.tecnico.cnv.worker.heartbeat.HeartbeatManager;
 
 public class WebServer {
 
 	public static void main(final String[] args) throws Exception {
 
-		HeartbeatThread heartbeatThread = new HeartbeatThread();
-		heartbeatThread.start();
+		HeartbeatManager heartbeatManager = new HeartbeatManager();
 
 		final HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
 
