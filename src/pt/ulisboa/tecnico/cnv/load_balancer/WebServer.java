@@ -4,9 +4,11 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.util.Properties;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import com.sun.net.httpserver.HttpServer;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.configuration.AutoScalerConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
@@ -61,11 +63,29 @@ public class WebServer {
 		}
 	}
 
+	private static AutoScalerConfig getAutoScalerConfig() throws Exception {
+		Properties props = new Properties();
+		try (InputStream is = WebServer.class.getClassLoader().getResourceAsStream("autoscaler.properties")) {
+			props.load(is);
+			return new AutoScalerConfig(
+				Integer.parseUnsignedInt(props.getProperty("minInstances")),
+				Integer.parseUnsignedInt(props.getProperty("maxInstances")),
+				Integer.parseUnsignedInt(props.getProperty("warmupPeriod")),
+				Integer.parseUnsignedInt(props.getProperty("minCpuUsage")),
+				Integer.parseUnsignedInt(props.getProperty("maxCpuUsage")),
+				Integer.parseUnsignedInt(props.getProperty("cloudWatchPeriod")),
+				Integer.parseUnsignedInt(props.getProperty("cloudWatchOffset")),
+				props.getProperty("cloudWatchRegion"),
+				TimeUnit.SECONDS);
+		}
+	}
+
 	public static void main(final String[] args) throws Exception {
 
 		DynamoDBConfig dynamoDBConfig = getDynamoDBConfig();
 		WorkerInstanceConfig workerConfig = getWorkerInstanceConfig();
 		PredictorConfig predictorConfig = getPredictorConfig();
+		AutoScalerConfig autoScalerConfig = getAutoScalerConfig();
 
 		// Intialize loadbalancer
 		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig, predictorConfig);

@@ -1,0 +1,19 @@
+# autoscaler configuration
+
+# number of instances
+minInstances=1
+maxInstances=5
+
+# warmup period for each instance (seconds)
+warmupPeriod=60
+
+# cpu usage thresholds (%)
+minCpuUsage=40
+maxCpuUsage=60
+
+# cloud watch settings
+cloudWatchRegion=us-east-1
+
+# cloud watch periods (seconds and has to be a multiple of 60)
+cloudWatchPeriod=60
+cloudWatchOffset=180
