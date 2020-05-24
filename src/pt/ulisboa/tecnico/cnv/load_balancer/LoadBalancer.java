@@ -4,9 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.locks.Condition;
@@ -61,7 +59,6 @@ public class LoadBalancer {
 
 	private final Lock requestLock = new ReentrantLock();
 	private final Condition requestCondition = requestLock.newCondition();
-	private final Queue<Request> requests;
 
 	private final ConcurrentSkipListSet<WorkerInstanceHolder> instances;
 	private final ConcurrentMap<String, StochasticGradientDescent3D> predictors;
@@ -82,7 +79,6 @@ public class LoadBalancer {
 		workerConfig = wc;
 		predictorConfig = pc;
 
-		requests = new ConcurrentLinkedQueue<>();
 		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.BalancedComparator());
 		predictors = new ConcurrentHashMap<>();
 
@@ -272,22 +268,18 @@ public class LoadBalancer {
 		instances.add(new WorkerInstanceHolder(instance));
 	}
 
-	public void enqueueRequest(Request request) throws InterruptedException {
+	public WorkerInstanceHolder chooseInstance(Request request) throws InterruptedException {
 		getAndUpdateCost(request);
-		requests.add(request);
 		Log.i("RequestQueue", "Enqueued request " + request.getId());
-	}
-
-	public WorkerInstanceHolder chooseInstance() throws InterruptedException {
 		requestLock.lockInterruptibly();
 		try {
 
 			while (instances.first().getRequestCapacity() == 0) {
+				Log.i(LOG_TAG, "Condition true, cannot proceed " + request.getId());
 				requestCondition.await();
 			}
 
 			WorkerInstanceHolder holder = instances.pollFirst();
-			Request request = requests.poll();
 			holder.addRequest(request);
 			instances.add(holder);
 			Log.i("RequestQueue", "Dequeued request " + request.getId());

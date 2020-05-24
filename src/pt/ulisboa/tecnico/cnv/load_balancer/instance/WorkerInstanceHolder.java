@@ -33,7 +33,7 @@ public class WorkerInstanceHolder {
 			if (o1.getRequestCapacity() > o2.getRequestCapacity())
 				return -1;
 
-			if (o1.requestCapacity < o2.getRequestCapacity())
+			if (o1.getRequestCapacity() < o2.getRequestCapacity())
 				return 1;
 
 			if (o1.getTotalCost() < o2.getTotalCost())
