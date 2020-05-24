@@ -26,8 +26,9 @@ import pt.ulisboa.tecnico.cnv.load_balancer.predictor.StochasticGradientDescent3
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
+import pt.ulisboa.tecnico.cnv.load_balancer.handler.HeartbeatHandler;
 
-public class LoadBalancer implements InstanceManager {
+public class LoadBalancer implements InstanceManager, HeartbeatHandler.Callback {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -206,4 +207,10 @@ public class LoadBalancer implements InstanceManager {
 
 	}
 
+	/**
+	 * Handler for when worker's heartbeat is received
+	 **/
+	public void workerHeartbeat(String workerId) {
+		Log.i(LOG_TAG, "Heartbeat from worker " + workerId);
+	}
 }
