@@ -1,6 +1,10 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import java.util.Map;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListSet;
