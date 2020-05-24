@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -46,7 +50,9 @@ import pt.ulisboa.tecnico.cnv.load_balancer.predictor.StochasticGradientDescent3
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-public class LoadBalancer {
+import pt.ulisboa.tecnico.cnv.load_balancer.handler.HeartbeatHandler;
+
+public class LoadBalancer implements  HeartbeatHandler.Callback {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -64,6 +70,7 @@ public class LoadBalancer {
 	private final ConcurrentMap<String, StochasticGradientDescent3D> predictors;
 
 	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc, PredictorConfig pc) {
+
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 
 		try {
@@ -182,6 +189,31 @@ public class LoadBalancer {
 			startRequest.withInstanceIds(stoppedInstanceIds);
 			ec2.startInstances(startRequest);
 		}
+	}
+
+	public String getLoadbalancerIP() {
+		String metadataURL = "http://169.254.169.254/latest/meta-data/public-ipv4";
+		StringBuilder result = new StringBuilder();
+		HttpURLConnection conn;
+
+		try {
+			URL url = new URL(metadataURL);
+			conn = (HttpURLConnection) url.openConnection();
+			conn.setRequestMethod("GET");
+			BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+			String line;
+			while ((line = rd.readLine()) != null) {
+				result.append(line);
+			}
+			rd.close();
+		} catch (Exception e) {
+			System.out.println("Failed to get Loadbalancer IP from metadata endpoint");
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+		}
+
+		return result.toString();
+
 	}
 
 	public WorkerInstanceConfig getWorkerInstanceConfig() {
@@ -308,4 +340,10 @@ public class LoadBalancer {
 		}
 	}
 
+	/**
+	 * Handler for when worker's heartbeat is received
+	 **/
+	public void workerHeartbeat(String workerId) {
+		Log.i(LOG_TAG, "Heartbeat from worker " + workerId);
+	}
 }

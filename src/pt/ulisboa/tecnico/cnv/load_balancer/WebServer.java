@@ -12,6 +12,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.StatusHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.SudokuHandler;
+import pt.ulisboa.tecnico.cnv.load_balancer.handler.HeartbeatHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 /**
@@ -83,6 +84,9 @@ public class WebServer {
 		server.createContext("/sudoku", new SudokuHandler(lb));
 		// health check endpoint
 		server.createContext("/status", new StatusHandler());
+
+		// worker heartbeat
+		server.createContext("/heartbeat", new HeartbeatHandler(lb));
 
 		// be aware! infinite pool of threads!
 		server.setExecutor(Executors.newCachedThreadPool());
