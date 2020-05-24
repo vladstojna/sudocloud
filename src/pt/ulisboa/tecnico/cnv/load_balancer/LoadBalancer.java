@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -149,8 +153,9 @@ public class LoadBalancer {
 			RunInstancesRequest runRequest = new RunInstancesRequest();
 			runRequest.withImageId(workerConfig.getImageId())
 				.withTagSpecifications(new TagSpecification()
-					.withResourceType("instance")
-					.withTags(new Tag(workerConfig.getTagKey(), workerConfig.getTagValue())))
+						       .withResourceType("instance")
+						       .withTags(new Tag(workerConfig.getTagKey(), workerConfig.getTagValue()),
+								 new Tag("loadbalancer_ip", getLoadbalancerIP())))
 				.withInstanceType(workerConfig.getType())
 				.withMinCount(1)
 				.withMaxCount(1)
@@ -182,6 +187,31 @@ public class LoadBalancer {
 			startRequest.withInstanceIds(stoppedInstanceIds);
 			ec2.startInstances(startRequest);
 		}
+	}
+
+	public String getLoadbalancerIP() {
+		String metadataURL = "http://169.254.169.254/latest/meta-data/public-ipv4";
+		StringBuilder result = new StringBuilder();
+		HttpURLConnection conn;
+
+		try {
+			URL url = new URL(metadataURL);
+			conn = (HttpURLConnection) url.openConnection();
+			conn.setRequestMethod("GET");
+			BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+			String line;
+			while ((line = rd.readLine()) != null) {
+				result.append(line);
+			}
+			rd.close();
+		} catch (Exception e) {
+			System.out.println("Failed to get Loadbalancer IP from metadata endpoint");
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+		}
+
+		return result.toString();
+
 	}
 
 	public WorkerInstanceConfig getWorkerInstanceConfig() {
