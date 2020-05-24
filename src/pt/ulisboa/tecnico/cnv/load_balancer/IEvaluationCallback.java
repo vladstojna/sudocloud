@@ -1,6 +1,6 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
-public interface EvaluationCallback {
-	void createInstance();
-	void terminateInstance(WorkerInstanceHolder worker);
+public interface IEvaluationCallback {
+	void createInstance(WorkerInstanceHolder createdInstance);
+	void terminateInstance(WorkerInstanceHolder terminatedInstance);
 }
