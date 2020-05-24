@@ -295,12 +295,10 @@ public class LoadBalancer {
 		Log.i(LOG_TAG, "Remove request: " + request);
 		requestLock.lockInterruptibly();
 		try {
-			holder.removeRequest(request.getId());
 
-			if (!holder.equals(instances.first())) {
-				instances.remove(holder);
-				instances.add(holder);
-			}
+			instances.remove(holder);
+			holder.removeRequest(request.getId());
+			instances.add(holder);
 
 			requestCondition.signal();
 
