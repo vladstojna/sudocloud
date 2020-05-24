@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
@@ -54,12 +57,15 @@ public class LoadBalancer {
 	private final AmazonDynamoDB dynamoDB;
 	private final AmazonEC2 ec2;
 
-	private final Object skipListLock = new Object();
+	private final Lock requestLock = new ReentrantLock();
+	private final Condition requestCondition = requestLock.newCondition();
+
 	private final ConcurrentSkipListSet<WorkerInstanceHolder> instances;
 	private final ConcurrentMap<String, StochasticGradientDescent3D> predictors;
 
 	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc, PredictorConfig pc) {
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
+
 		try {
 			credentialsProvider.getCredentials();
 		} catch (Exception e) {
@@ -68,10 +74,12 @@ public class LoadBalancer {
 				"Please make sure that your credentials file is at the correct " +
 				"location (~/.aws/credentials), and is in valid format.", e);
 		}
+
 		dynamoDBConfig = dc;
 		workerConfig = wc;
 		predictorConfig = pc;
-		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.TotalCostComparator());
+
+		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.BalancedComparator());
 		predictors = new ConcurrentHashMap<>();
 
 		ec2 = AmazonEC2ClientBuilder.standard()
@@ -260,25 +268,43 @@ public class LoadBalancer {
 		instances.add(new WorkerInstanceHolder(instance));
 	}
 
-	public WorkerInstanceHolder chooseInstance(Request request) {
-		Log.i(LOG_TAG, "Choose instance for request: " + request);
+	public WorkerInstanceHolder chooseInstance(Request request) throws InterruptedException {
 		getAndUpdateCost(request);
-		synchronized (skipListLock) {
+		Log.i("RequestQueue", "Enqueued request " + request.getId());
+		requestLock.lockInterruptibly();
+		try {
+
+			while (instances.first().getRequestCapacity() == 0) {
+				Log.i(LOG_TAG, "Condition true, cannot proceed " + request.getId());
+				requestCondition.await();
+			}
+
 			WorkerInstanceHolder holder = instances.pollFirst();
 			holder.addRequest(request);
 			instances.add(holder);
+			Log.i("RequestQueue", "Dequeued request " + request.getId());
 			Log.i(LOG_TAG, "Instance chosen: " + holder);
+
 			return holder;
+		} finally {
+			requestLock.unlock();
 		}
 	}
 
-	public void removeRequest(WorkerInstanceHolder holder, Request request) {
+	public void removeRequest(WorkerInstanceHolder holder, Request request) throws InterruptedException {
 		Log.i(LOG_TAG, "Remove request: " + request);
-		synchronized (skipListLock) {
+		requestLock.lockInterruptibly();
+		try {
+
 			instances.remove(holder);
 			holder.removeRequest(request.getId());
 			instances.add(holder);
+
+			requestCondition.signal();
+
 			Log.i(LOG_TAG, "Instance after removal: " + holder);
+		} finally {
+			requestLock.unlock();
 		}
 	}
 

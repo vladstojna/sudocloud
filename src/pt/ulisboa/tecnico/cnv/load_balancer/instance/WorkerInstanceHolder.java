@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.amazonaws.services.ec2.model.CpuOptions;
 import com.amazonaws.services.ec2.model.Instance;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Id;
@@ -19,14 +20,29 @@ public class WorkerInstanceHolder {
 	private final Instance instance;
 	private final Map<Id, Request> requests;
 	private long totalCost;
+	private long requestCapacity;
 
-	public static final class TotalCostComparator implements Comparator<WorkerInstanceHolder> {
+	/**
+	 * Compares instances in regards to their current workload.
+	 * Returns the most available instance in terms of load.
+	 */
+	public static final class BalancedComparator implements Comparator<WorkerInstanceHolder> {
 		@Override
 		public int compare(WorkerInstanceHolder o1, WorkerInstanceHolder o2) {
+
+			if (o1.getRequestCapacity() > o2.getRequestCapacity())
+				return -1;
+
+			if (o1.getRequestCapacity() < o2.getRequestCapacity())
+				return 1;
+
 			if (o1.getTotalCost() < o2.getTotalCost())
 				return -1;
-			if (o1.getTotalCost() == o2.getTotalCost())
+
+			if (o1.getTotalCost() == o2.getTotalCost()) {
 				return o1.equals(o2) == true ? 0 : 1;
+			}
+
 			return 1;
 		}
 	}
@@ -35,6 +51,8 @@ public class WorkerInstanceHolder {
 		this.instance = instance;
 		requests = new ConcurrentHashMap<>();
 		totalCost = 0;
+		CpuOptions cpuOptions = instance.getCpuOptions();
+		requestCapacity = cpuOptions.getCoreCount() * cpuOptions.getThreadsPerCore();
 	}
 
 	public Instance getInstance() {
@@ -49,15 +67,21 @@ public class WorkerInstanceHolder {
 		return totalCost;
 	}
 
+	public long getRequestCapacity() {
+		return requestCapacity;
+	}
+
 	public void addRequest(Request req) {
 		requests.put(req.getId(), req);
 		totalCost += req.getCost();
+		requestCapacity--;
 	}
 
 	public void removeRequest(Id id) {
 		Request req = requests.remove(id);
 		if (req != null) {
 			totalCost -= req.getCost();
+			requestCapacity++;
 		}
 	}
 
@@ -90,7 +114,8 @@ public class WorkerInstanceHolder {
 	public String toString() {
 		return "WorkerInstanceHolder [instance=" + instance.getInstanceId() +
 			", requests=" + requests.size() +
-			", totalCost=" + totalCost + "]";
+			", totalCost=" + totalCost +
+			", requestCapacity=" + requestCapacity + "]";
 	}
 
 }
