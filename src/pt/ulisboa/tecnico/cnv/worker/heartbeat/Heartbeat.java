@@ -1,6 +1,5 @@
-package pt.ulisboa.tecnico.cnv.worker;
+package pt.ulisboa.tecnico.cnv.worker.heartbeat;
 
-import java.lang.Thread;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.BufferedReader;
@@ -19,31 +18,19 @@ import com.amazonaws.services.ec2.model.DescribeTagsResult;
 import com.amazonaws.services.ec2.model.TagDescription;
 import com.amazonaws.services.ec2.model.Filter;
 
-public class HeartbeatThread extends Thread {
+public class Heartbeat implements Runnable {
 
-	private static final int heartbeatInterval = 5000; // heartbeat every 5 seconds
 	private final String loadbalancerIP;
 	private final String workerId;
 
-	public HeartbeatThread() {
+	public Heartbeat() {
 		System.out.println("Heartbeat thread initialized");
 		this.loadbalancerIP = getLoadbalancerIP();
 		this.workerId = getWorkerId();
 	}
 
 	public void run() {
-		try {
-			boolean running = true;
-			while (running) {
-				heartbeat();
-				Thread.sleep(heartbeatInterval);
-			}
-		} catch(InterruptedException v) {
-			System.out.println(v);
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-		}
+	    heartbeat();
 	}
 
 	/**
