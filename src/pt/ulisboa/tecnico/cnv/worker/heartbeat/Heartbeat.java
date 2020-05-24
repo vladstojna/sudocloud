@@ -17,14 +17,20 @@ import com.amazonaws.services.ec2.model.DescribeTagsRequest;
 import com.amazonaws.services.ec2.model.DescribeTagsResult;
 import com.amazonaws.services.ec2.model.TagDescription;
 import com.amazonaws.services.ec2.model.Filter;
+import com.amazonaws.services.ec2.model.Reservation;
+import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 
 public class Heartbeat implements Runnable {
 
 	private final String loadbalancerIP;
 	private final String workerId;
+	private final AmazonEC2 ec2;
 
 	public Heartbeat() {
 		System.out.println("Heartbeat thread initialized");
+		ec2 = AmazonEC2ClientBuilder.defaultClient();
 		this.loadbalancerIP = getLoadbalancerIP();
 		this.workerId = getWorkerId();
 	}
@@ -107,19 +113,33 @@ public class Heartbeat implements Runnable {
 	 * worker machine.
 	 **/
 	private String getLoadbalancerIP() {
-		AmazonEC2 client = AmazonEC2ClientBuilder.standard().build();
-		DescribeTagsRequest request = new DescribeTagsRequest()
-			.withFilters(new Filter()
-				     .withName("resource-id")
-				     .withValues(getWorkerId()));
-		DescribeTagsResult response = client.describeTags(request);
-		List<TagDescription> tags = response.getTags();
+		System.out.println("Initial loadbalancer instance lookup");
 
-		for (TagDescription tag : tags) {
-			if (tag.getKey().equals("loadbalancer_ip"))
-				return tag.getValue();
+		Filter tagFilter = new Filter("tag:type")
+			.withValues("loadbalancer");
+		Filter statusFilter = new Filter("instance-state-name")
+			.withValues("running");
+
+		DescribeInstancesRequest request = new DescribeInstancesRequest()
+			.withFilters(tagFilter, statusFilter);
+
+		// Find the running loadbalancer
+		DescribeInstancesResult response = ec2.describeInstances(request);
+
+		String loadbalancerIP = "";
+		for (Reservation reservation : response.getReservations()) {
+			for (Instance instance : reservation.getInstances()) {
+				if (instance.getState().getName().equals("running")) {
+					loadbalancerIP = instance.getPublicIpAddress();
+					System.out.println("Found loadbalancer's IP");
+				}
+			}
 		}
-		System.out.println("Error: loadbalancer_ip tag not present");
-		return null;
+
+		if (loadbalancerIP == "") {
+			System.out.println("no loadbalancer found. Check if you have loadbalancer with tag 'type:loadbalancer'");
+		}
+
+		return loadbalancerIP;
 	}
 }
