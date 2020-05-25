@@ -17,4 +17,9 @@ public class Percentile implements MetricType {
 		int index = (int) Math.ceil(percentile * metrics.size()) - 1;
 		return metrics.get(index);
 	}
+
+	@Override
+	public String toString() {
+		return "Percentile (" + percentile + ")";
+	}
 }

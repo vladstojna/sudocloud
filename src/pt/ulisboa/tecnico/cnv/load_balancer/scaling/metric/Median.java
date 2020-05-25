@@ -6,4 +6,9 @@ public class Median extends Percentile {
 		super(0.5);
 	}
 
+	@Override
+	public String toString() {
+		return "Median";
+	}
+
 }

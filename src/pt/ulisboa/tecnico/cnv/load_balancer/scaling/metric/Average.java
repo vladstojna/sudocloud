@@ -13,4 +13,9 @@ public class Average implements MetricType {
 		return statistic / denom;
 	}
 
+	@Override
+	public String toString() {
+		return "Average";
+	}
+
 }
