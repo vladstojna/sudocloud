@@ -89,8 +89,8 @@ public class WebServer {
 		PredictorConfig predictorConfig = getPredictorConfig();
 		AutoScalerConfig autoScalerConfig = getAutoScalerConfig();
 
-		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig, predictorConfig);
-		AutoScaler autoScaler = new AutoScaler(autoScalerConfig, workerConfig, lb, new Median());
+		LoadBalancer loadBalancer = new LoadBalancer(dynamoDBConfig, workerConfig, predictorConfig);
+		AutoScaler autoScaler = new AutoScaler(autoScalerConfig, workerConfig, loadBalancer, new Median());
 
 		autoScaler.initialInstanceStartup();
 
@@ -100,7 +100,7 @@ public class WebServer {
 		final HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
 		// sudoku solver endpoint
-		server.createContext("/sudoku", new SudokuHandler(lb));
+		server.createContext("/sudoku", new SudokuHandler(loadBalancer, autoScaler));
 		// health check endpoint
 		server.createContext("/status", new StatusHandler());
 

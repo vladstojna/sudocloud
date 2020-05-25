@@ -189,8 +189,7 @@ public class LoadBalancer implements InstanceManager {
 		requestLock.lockInterruptibly();
 		try {
 
-			while (instances.first().getRequestCapacity() == 0) {
-				Log.i(LOG_TAG, "Condition true, cannot proceed " + request.getId());
+			while (!instances.first().isAvailable()) {
 				requestCondition.await();
 			}
 
@@ -206,14 +205,19 @@ public class LoadBalancer implements InstanceManager {
 		}
 	}
 
-	public void removeRequest(WorkerInstanceHolder holder, Request request) throws InterruptedException {
+	public void removeRequest(WorkerInstanceHolder holder, Request request, AutoScaler callback) throws InterruptedException {
 		Log.i(LOG_TAG, "Remove request: " + request);
 		requestLock.lockInterruptibly();
 		try {
 
 			instances.remove(holder);
 			holder.removeRequest(request.getId());
-			instances.add(holder);
+
+			if (holder.canRemove()) {
+				callback.terminateInstanceAsync(holder.getInstance());
+			} else {
+				instances.add(holder);
+			}
 
 			requestCondition.signal();
 
@@ -229,13 +233,23 @@ public class LoadBalancer implements InstanceManager {
 	}
 
 	@Override
-	public void addInstance(WorkerInstanceHolder instance) {
-		instances.add(instance);
+	public void addInstance(WorkerInstanceHolder holder) {
+		instances.add(holder);
 	}
 
 	@Override
-	public void markForRemoval(WorkerInstanceHolder instance) {
-		// TODO
+	public void markForRemoval(WorkerInstanceHolder holder, AutoScaler callback) throws InterruptedException {
+		requestLock.lockInterruptibly();
+		try {
+			holder.markForRemoval();
+			instances.remove(holder);
+			if (holder.canRemove()) {
+				callback.terminateInstanceAsync(holder.getInstance());
+			}
+		} finally {
+			requestLock.unlock();
+		}
+
 	}
 
 }

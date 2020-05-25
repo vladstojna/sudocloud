@@ -6,8 +6,8 @@ public interface InstanceManager {
 
 	Iterable<WorkerInstanceHolder> getInstances();
 
-	void addInstance(WorkerInstanceHolder instance);
+	void addInstance(WorkerInstanceHolder holder);
 
-	void markForRemoval(WorkerInstanceHolder instance);
+	void markForRemoval(WorkerInstanceHolder holder, AutoScaler callback) throws InterruptedException;
 
 }

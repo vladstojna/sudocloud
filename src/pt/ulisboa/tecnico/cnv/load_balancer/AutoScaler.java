@@ -292,7 +292,7 @@ public class AutoScaler {
 	 * Terminate one instance
 	 * @param instance the instance to terminate
 	 */
-	public void terminateInstance(Instance instance) {
+	private void terminateInstance(Instance instance) {
 		terminateInstances(Arrays.asList(instance));
 	}
 
@@ -382,7 +382,7 @@ public class AutoScaler {
 			}
 		}
 
-		private void evaluation() {
+		private void evaluation() throws InterruptedException {
 
 			if (hasOverflowed()) {
 				throw new IllegalStateException("There are more instances than the maximum!");
@@ -459,13 +459,14 @@ public class AutoScaler {
 		 * instances list (first one, since it is ordered by CPU load and total cost)
 		 * @param overloadedInstances number of overloaded workers
 		 * @param underloadedInstances underloaded instances list
+		 * @throws InterruptedException if thread is interrupted
 		 */
-		private void scale(int overloadedInstances, List<Entry> underloadedInstances) {
+		private void scale(int overloadedInstances, List<Entry> underloadedInstances) throws InterruptedException {
 			if (overloadedInstances > underloadedInstances.size()) {
 				createInstanceAsync(instanceManager);
 			} else if (underloadedInstances.size() > overloadedInstances) {
 				if (!isAtMin()) {
-					instanceManager.markForRemoval(underloadedInstances.get(0).holder);
+					instanceManager.markForRemoval(underloadedInstances.get(0).holder, AutoScaler.this);
 				} else {
 					Log.e(LOG_TAG, "Unable to mark instance for removal: already at minimum count");
 				}
