@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -51,6 +52,8 @@ public class AutoScaler implements InstanceScaling {
 
 	private final ScheduledExecutorService cloudWatchExecutor;
 	private final ExecutorService instanceExecutor;
+	private final ExecutorService coolDownExecutor;
+	private Future<?> coolDownResult;
 
 	private final WorkerInstanceConfig workerConfig;
 	private final AutoScalerConfig autoScalerConfig;
@@ -81,6 +84,7 @@ public class AutoScaler implements InstanceScaling {
 		this.metricType = mode;
 		this.cloudWatchExecutor = Executors.newScheduledThreadPool(1);
 		this.instanceExecutor = Executors.newFixedThreadPool(2);
+		this.coolDownExecutor = Executors.newSingleThreadExecutor();
 	}
 
 	/**
@@ -521,6 +525,30 @@ public class AutoScaler implements InstanceScaling {
 				}
 			}
 		});
+	}
+
+	@Override
+	public void attemptCreateInstanceAsync(InstanceManager instanceManager) {
+		final int coolDown = autoScalerConfig.getWarmupPeriod() + 10;
+
+		if (coolDownResult != null && !coolDownResult.isDone()) {
+			Log.i(LOG_TAG, "Refused instance creation - still in cooldown");
+			return;
+		}
+
+		createInstanceAsync(instanceManager);
+
+		coolDownResult = coolDownExecutor.submit(new Runnable(){
+			@Override
+			public void run() {
+				try {
+					autoScalerConfig.getTimeUnit().sleep(coolDown);
+				} catch (InterruptedException e) {
+					Log.e(LOG_TAG, "Cooldown Interrupted", e);
+				}
+			}
+		});
+
 	}
 
 }

@@ -18,8 +18,11 @@ import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 public class WorkerInstanceHolder implements Comparable<WorkerInstanceHolder> {
 
 	private final Instance instance;
+
 	private final Map<Id, Request> requests;
 	private long totalCost;
+
+	private final long maxCapacity;
 	private long requestCapacity;
 	private boolean markedForRemoval;
 
@@ -54,6 +57,7 @@ public class WorkerInstanceHolder implements Comparable<WorkerInstanceHolder> {
 		totalCost = 0;
 		CpuOptions cpuOptions = instance.getCpuOptions();
 		requestCapacity = cpuOptions.getCoreCount() * cpuOptions.getThreadsPerCore();
+		maxCapacity = requestCapacity;
 		markedForRemoval = false;
 	}
 
@@ -79,6 +83,10 @@ public class WorkerInstanceHolder implements Comparable<WorkerInstanceHolder> {
 
 	public long getTotalCost() {
 		return totalCost;
+	}
+
+	public long getMaxRequestCapacity() {
+		return maxCapacity;
 	}
 
 	public long getRequestCapacity() {
