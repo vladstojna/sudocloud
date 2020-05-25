@@ -107,6 +107,7 @@ public class WebServer {
 		// be aware! infinite pool of threads!
 		server.setExecutor(Executors.newCachedThreadPool());
 		server.start();
+		autoScaler.start();
 
 		Log.i(server.getAddress().toString());
 	}
