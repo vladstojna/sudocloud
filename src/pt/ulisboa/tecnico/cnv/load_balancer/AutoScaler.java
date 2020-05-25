@@ -29,6 +29,7 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.InstanceStateName;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.ResourceType;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
@@ -107,6 +108,41 @@ public class AutoScaler implements InstanceScaling {
 	}
 
 	/**
+	 * Awaits instance warmup dynamically
+	 * @param instances the collection of instances to warmup
+	 * @throws InterruptedException if thead is interrupted
+	 */
+	private void awaitDynamicWarmup(Collection<Instance> instances) throws InterruptedException {
+		if (instances == null || instances.isEmpty()) {
+			Log.i(LOG_TAG, "instances is null or empty, awaiting normal warmup");
+			awaitWarmup();
+		}
+
+		Log.i(LOG_TAG, "Waiting for warmup (dynamic)...");
+
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+		for (Instance inst : instances) {
+			request.withInstanceIds(inst.getInstanceId());
+		}
+
+		boolean allRunning;
+		do {
+			allRunning = true;
+			DescribeInstancesResult result = ec2.describeInstances(request);
+			for (Reservation reserv : result.getReservations()) {
+				for (Instance inst : reserv.getInstances()) {
+					if (!inst.getState().getName().equals(InstanceStateName.Running.toString())) {
+						allRunning = false;
+					}
+				}
+			}
+			if (allRunning == false) {
+				autoScalerConfig.getTimeUnit().sleep(5);
+			}
+		} while (allRunning == false);
+	}
+
+	/**
 	 * Find the running or stopped worker instances and registers them.
 	 * Starts stopped instances.
 	 * If no instances found, creates new ones.
@@ -134,7 +170,7 @@ public class AutoScaler implements InstanceScaling {
 		if (response.getReservations().isEmpty()) {
 			List<Instance> instances = createInstances(minInstances);
 			Log.i(LOG_TAG, "No worker instances found, created " + minInstances);
-			awaitWarmup();
+			awaitDynamicWarmup(instances);
 			for (Instance i : instances) {
 				instanceManager.addInstance(new WorkerInstanceHolder(i));
 			}
@@ -188,7 +224,7 @@ public class AutoScaler implements InstanceScaling {
 		}
 
 		if (mustAwaitWarmup) {
-			awaitWarmup();
+			awaitDynamicWarmup(instances);
 		}
 
 		setCurrentInstanceCount(minInstances);
@@ -447,7 +483,6 @@ public class AutoScaler implements InstanceScaling {
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
-
 		}
 
 	}
@@ -462,7 +497,7 @@ public class AutoScaler implements InstanceScaling {
 				Instance instance = createInstance();
 				if (instance != null) {
 					try {
-						awaitWarmup();
+						awaitDynamicWarmup(Arrays.asList(instance));
 						callback.addInstance(new WorkerInstanceHolder(instance));
 					} catch (InterruptedException e) {
 						terminateInstance(instance);
