@@ -1,14 +1,18 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
@@ -34,7 +38,6 @@ import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.ec2.model.TagSpecification;
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
 
-import pt.ulisboa.tecnico.cnv.load_balancer.callback.IEvaluationCallback;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.AutoScalerConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
@@ -45,17 +48,16 @@ public class AutoScaler {
 
 	private static final String LOG_TAG = AutoScaler.class.getSimpleName();
 
+	private final ScheduledExecutorService cloudWatchExecutor;
+
 	private final WorkerInstanceConfig workerConfig;
 	private final AutoScalerConfig autoScalerConfig;
 
-	// important to create and terminate instances
 	private final AmazonEC2 ec2;
-	// important for statistics
 	private final AmazonCloudWatch cw;
 
-	//private final IEvaluationCallback evaluationCallback;
-
 	private final InstanceManager instanceManager;
+	private final AtomicInteger currentInstanceCount;
 	private final MetricType metricType;
 
 	public AutoScaler(AutoScalerConfig asc, WorkerInstanceConfig wc, InstanceManager im, MetricType mode) {
@@ -75,11 +77,23 @@ public class AutoScaler {
 		// this.evaluationCallback = evaluationCallback;
 
 		this.instanceManager = im;
+		this.currentInstanceCount = new AtomicInteger();
 		this.metricType = mode;
+		this.cloudWatchExecutor = Executors.newScheduledThreadPool(1);
 	}
 
-	public WorkerInstanceHolder startInstance() {
-		return this.startInstances(1).get(0);
+	/**
+	 * Starts the auto-scaling service
+	 */
+	public void start() {
+		int offset = autoScalerConfig.getCloudWatchOffset();
+		int period = autoScalerConfig.getPollingPeriod();
+		TimeUnit timeUnit = autoScalerConfig.getTimeUnit();
+
+		Log.i(LOG_TAG, "Started auto-scaling service. Will execute in " +
+			offset + " " + timeUnit.toString());
+
+		cloudWatchExecutor.scheduleAtFixedRate(new EvaluationRunnable(), offset, period, timeUnit);
 	}
 
 	/**
@@ -175,15 +189,52 @@ public class AutoScaler {
 		}
 	}
 
+	/**
+	 * Terminate instances
+	 * @param instances instances to terminate
+	 */
 	private void terminateInstances(Collection<Instance> instances) {
-		Log.i(LOG_TAG, "Terminating " + instances.size() + " instances");
+
+		if (instances == null) {
+			throw new NullPointerException("instances cannot be null");
+		}
+
+		if (instances.isEmpty()) {
+			throw new IllegalArgumentException("instances cannot be empty");
+		}
+
+		if (isAtMin()) {
+			Log.i(LOG_TAG, "Minimum instance count reached");
+			return;
+		}
+
+		Log.i(LOG_TAG, "Terminating " + instances.size() + " instance(s)");
 		TerminateInstancesRequest request = new TerminateInstancesRequest();
 		for (Instance i : instances)
 				request.withInstanceIds(i.getInstanceId());
 		ec2.terminateInstances(request);
+
+		currentInstanceCount.addAndGet(-instances.size());
 	}
 
+	/**
+	 * Create instances
+	 * @param quantity the amount of instances to create
+	 * @return list of created instances or null if at max quantity
+	 */
 	private List<Instance> createInstances(int quantity) {
+
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("quantity must be a positive number");
+		}
+
+		if (isAtMax()) {
+			Log.i(LOG_TAG, "Maximum instance count reached");
+			return null;
+		}
+
+		Log.i(LOG_TAG, "Creating " + quantity + " instances...");
+
 		RunInstancesRequest runRequest = new RunInstancesRequest();
 		runRequest.withImageId(workerConfig.getImageId())
 			.withTagSpecifications(new TagSpecification()
@@ -195,94 +246,58 @@ public class AutoScaler {
 			.withKeyName(workerConfig.getKeyName())
 			.withSecurityGroups(workerConfig.getSecurityGroup());
 		RunInstancesResult runResult = ec2.runInstances(runRequest);
+
+		currentInstanceCount.addAndGet(quantity);
+
 		return runResult.getReservation().getInstances();
 	}
 
-	public List<WorkerInstanceHolder> startInstances(int numberInstances) {
-		Log.i(LOG_TAG, "Starting " + numberInstances + " new worker instance");
-		Tag tag = new Tag()
-				.withKey(workerConfig.getTagKey())
-				.withValue(workerConfig.getTagValue());
-		TagSpecification tagSpecification = new TagSpecification()
-				.withTags(tag)
-				.withResourceType(ResourceType.Instance);
-		RunInstancesRequest request = new RunInstancesRequest()
-				.withImageId(workerConfig.getImageId())
-				.withInstanceType(workerConfig.getType())
-				.withMaxCount(numberInstances)
-				.withMinCount(numberInstances)
-				.withKeyName(workerConfig.getKeyName())
-				.withSecurityGroups(workerConfig.getSecurityGroup())
-				.withMonitoring(true)
-				.withTagSpecifications(tagSpecification);
-
-		RunInstancesResult runInstancesResult = this.ec2.runInstances(request);
-		List<WorkerInstanceHolder> newWorkers = new ArrayList<>();
-		for (Instance instance : runInstancesResult.getReservation().getInstances()) {
-			Log.i(LOG_TAG, String.format("Successfully started EC2 instance %s based on AMI %s", instance.getInstanceId(), workerConfig.getImageId()));
-			newWorkers.add(new WorkerInstanceHolder(instance));
-		}
-		return newWorkers;
+	/**
+	 * Creates one instance
+	 * @return the instance created or null if instance was not created
+	 */
+	private Instance createInstance() {
+		List<Instance> instances = createInstances(1);
+		return instances == null ? null : instances.get(0);
 	}
 
-	public void terminateInstance(WorkerInstanceHolder worker) {
-		List<WorkerInstanceHolder> workers = new ArrayList<>();
-		workers.add(worker);
-		// this.terminateInstances(workers);
+	/**
+	 * Terminate one instance
+	 * @param instance the instance to terminate
+	 */
+	public void terminateInstance(Instance instance) {
+		terminateInstances(Arrays.asList(instance));
 	}
 
-	/*
-	public void terminateInstances(List<WorkerInstanceHolder> workers) {
-		for (WorkerInstanceHolder worker : workers) {
-			String instanceId = worker.getInstance().getInstanceId();
-			Log.i(LOG_TAG, "Terminating worker instance with id " + instanceId);
-			TerminateInstancesRequest request = new TerminateInstancesRequest()
-					.withInstanceIds(instanceId);
-			this.ec2.terminateInstances(request);
-			Log.i(LOG_TAG, String.format("Successfully terminated EC2 instance %s", instanceId));
-		}
-	}
-	*/
-
-	private void evaluation() {
-		Map<WorkerInstanceHolder, Double> statistics = new HashMap<>();
-		for (WorkerInstanceHolder worker : instanceManager.getInstances()) {
-			GetMetricDataResult getMetricDataResult = cw.getMetricData(getMetricDataRequest(worker));
-			// there is only one metric data always
-			MetricDataResult metricDataResult = getMetricDataResult.getMetricDataResults().get(0);
-			for (int i = 0, len = metricDataResult.getValues().size(); i < len; i++) {
-				Log.i(LOG_TAG, metricDataResult.getTimestamps().get(i) + " : " + metricDataResult.getValues().get(i));
-			}
-			statistics.put(worker, metricType.calculate(metricDataResult.getValues()));
-		}
-
-		List<WorkerInstanceHolder> overloadWorkers = new ArrayList<>();
-		for (Map.Entry<WorkerInstanceHolder, Double> entry : statistics.entrySet()) {
-			if (entry.getValue() >= autoScalerConfig.getMaxCpuUsage())
-				overloadWorkers.add(entry.getKey());
-		}
-
-		List<WorkerInstanceHolder> underloadWorkers = new ArrayList<>();
-		for (Map.Entry<WorkerInstanceHolder, Double> entry : statistics.entrySet()) {
-			if (entry.getValue() <= autoScalerConfig.getMinCpuUsage())
-				underloadWorkers.add(entry.getKey());
-		}
-
-		/* FIXME Commented, for now
-		if (overloadWorkers.size() > 0)
-			this.evaluationCallback.createInstance(startInstance());
-		if (underloadWorkers.size() > 0) {
-			for (WorkerInstanceHolder worker : underloadWorkers)
-				this.evaluationCallback.terminateInstance(worker);
-		}
-		*/
+	private boolean hasOverflowed() {
+		return currentInstanceCount.get() > autoScalerConfig.getMaxInstances();
 	}
 
-	private GetMetricDataRequest getMetricDataRequest(WorkerInstanceHolder worker) {
+	private boolean hasUnderflowed() {
+		return currentInstanceCount.get() > autoScalerConfig.getMinInstances();
+	}
+
+	private boolean isAtMax() {
+		return currentInstanceCount.get() == autoScalerConfig.getMaxInstances();
+	}
+
+	private boolean isAtMin() {
+		return currentInstanceCount.get() == autoScalerConfig.getMinInstances();
+	}
+
+	private boolean isOverloaded(Double data) {
+		return data >= autoScalerConfig.getMaxCpuUsage();
+	}
+
+	private boolean isUnderloaded(Double data) {
+		return data <= autoScalerConfig.getMinCpuUsage();
+	}
+
+	private GetMetricDataRequest getMetricDataRequest(Instance instance) {
 		long currentTime = new Date().getTime();
 		Dimension dimension = new Dimension()
 				.withName("InstanceId")
-				.withValue(worker.getInstance().getInstanceId());
+				.withValue(instance.getInstanceId());
 		Metric metric = new Metric()
 				.withNamespace("AWS/EC2")
 				.withMetricName("CPUUtilization")
@@ -299,6 +314,87 @@ public class AutoScaler {
 				.withMetricDataQueries(metricDataQuery)
 				.withScanBy("TimestampDescending")
 				.withEndTime(new Date(currentTime));
+	}
+
+	private class EvaluationRunnable implements Runnable {
+
+		private class Entry implements Comparable<Entry> {
+			private final WorkerInstanceHolder holder;
+			private final Double metricResult;
+
+			public Entry(WorkerInstanceHolder holder, Double metricResult) {
+				this.holder = holder;
+				this.metricResult = metricResult;
+			}
+
+			@Override
+			public int compareTo(Entry o) {
+				int i = Double.compare(metricResult, o.metricResult);
+				if (i == 0) {
+					i = holder.compareTo(o.holder);
+				}
+				return i;
+			}
+		}
+
+		private void evaluation() {
+
+			if (hasOverflowed()) {
+				throw new IllegalStateException("There are more instances than the maximum!");
+			}
+
+			if (hasUnderflowed()) {
+				throw new IllegalStateException("There are less instances than the minimum!");
+			}
+
+			Set<Entry> statistics = new TreeSet<>();
+
+			for (WorkerInstanceHolder holder : instanceManager.getInstances()) {
+
+				GetMetricDataResult getMetricDataResult = cw.getMetricData(
+					getMetricDataRequest(holder.getInstance()));
+
+				// there is only one metric data always
+				MetricDataResult metricDataResult = getMetricDataResult.getMetricDataResults().get(0);
+
+				for (int i = 0, len = metricDataResult.getValues().size(); i < len; i++) {
+					Log.i(LOG_TAG, metricDataResult.getTimestamps().get(i) + " : " +
+						metricDataResult.getValues().get(i) + "%");
+				}
+
+				Entry entry = new Entry(holder, metricType.calculate(metricDataResult.getValues()));
+				statistics.add(entry);
+
+			}
+
+			int overloadedWorkers = 0;
+			List<Entry> underloadedWorkers = new ArrayList<>();
+
+			for (Entry entry : statistics) {
+				if (isOverloaded(entry.metricResult)) {
+					overloadedWorkers++;
+				} else if (isUnderloaded(entry.metricResult)) {
+					underloadedWorkers.add(entry);
+				}
+			}
+
+			if (overloadedWorkers > 0 && !underloadedWorkers.isEmpty()) {
+				Log.i(LOG_TAG, "Workload imbalance may be present; both underloaded and overloaded workers exist");
+			} else if (overloadedWorkers > 0) {
+				Log.i(LOG_TAG, "Overloaded workers found");
+			} else {
+				Log.i(LOG_TAG, "Underloaded workers found");
+			}
+
+			// TODO: scaling policy
+
+		}
+
+		@Override
+		public void run() {
+			evaluation();
+		}
+
 	}
 
 }
