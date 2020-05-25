@@ -44,7 +44,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
 import pt.ulisboa.tecnico.cnv.load_balancer.scaling.metric.MetricType;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-public class AutoScaler {
+public class AutoScaler implements InstanceScaling {
 
 	private static final String LOG_TAG = AutoScaler.class.getSimpleName();
 
@@ -74,8 +74,6 @@ public class AutoScaler {
 				.standard()
 				.withRegion(autoScalerConfig.getRegion())
 				.build();
-
-		// this.evaluationCallback = evaluationCallback;
 
 		this.instanceManager = im;
 		this.currentInstanceCount = 0;
@@ -193,8 +191,6 @@ public class AutoScaler {
 			awaitWarmup();
 		}
 
-
-
 		setCurrentInstanceCount(minInstances);
 		for (Instance i : instances) {
 			instanceManager.addInstance(new WorkerInstanceHolder(i));
@@ -286,45 +282,12 @@ public class AutoScaler {
 		return instances == null ? null : instances.get(0);
 	}
 
-	public void createInstanceAsync(InstanceManager callback) {
-		instanceExecutor.execute(new Runnable() {
-
-			@Override
-			public void run() {
-				Instance instance = createInstance();
-				if (instance != null) {
-					try {
-						awaitWarmup();
-						callback.addInstance(new WorkerInstanceHolder(instance));
-					} catch (InterruptedException e) {
-						terminateInstance(instance);
-						Log.e(LOG_TAG, e);
-					}
-				}
-			}
-		});
-	}
-
 	/**
 	 * Terminate one instance
 	 * @param instance the instance to terminate
 	 */
 	private void terminateInstance(Instance instance) {
 		terminateInstances(Arrays.asList(instance));
-	}
-
-	public void terminateInstanceAsync(Instance instance) {
-		instanceExecutor.execute(new Runnable(){
-
-			@Override
-			public void run() {
-				try {
-					terminateInstance(instance);
-				} catch (Exception e) {
-					Log.e(LOG_TAG, "Unable to terminate instance " + instance.getInstanceId(), e);
-				}
-			}
-		});
 	}
 
 	private boolean hasOverflowed(int n) {
@@ -369,6 +332,7 @@ public class AutoScaler {
 				.withScanBy("TimestampDescending")
 				.withEndTime(new Date(currentTime));
 	}
+
 
 	private class EvaluationRunnable implements Runnable {
 
@@ -486,6 +450,42 @@ public class AutoScaler {
 
 		}
 
+	}
+
+
+	@Override
+	public void createInstanceAsync(InstanceManager callback) {
+		instanceExecutor.execute(new Runnable() {
+
+			@Override
+			public void run() {
+				Instance instance = createInstance();
+				if (instance != null) {
+					try {
+						awaitWarmup();
+						callback.addInstance(new WorkerInstanceHolder(instance));
+					} catch (InterruptedException e) {
+						terminateInstance(instance);
+						Log.e(LOG_TAG, e);
+					}
+				}
+			}
+		});
+	}
+
+	@Override
+	public void terminateInstanceAsync(Instance instance) {
+		instanceExecutor.execute(new Runnable(){
+
+			@Override
+			public void run() {
+				try {
+					terminateInstance(instance);
+				} catch (Exception e) {
+					Log.e(LOG_TAG, "Unable to terminate instance " + instance.getInstanceId(), e);
+				}
+			}
+		});
 	}
 
 }

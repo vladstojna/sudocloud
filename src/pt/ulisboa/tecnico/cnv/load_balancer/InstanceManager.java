@@ -8,6 +8,6 @@ public interface InstanceManager {
 
 	void addInstance(WorkerInstanceHolder holder);
 
-	void markForRemoval(WorkerInstanceHolder holder, AutoScaler callback) throws InterruptedException;
+	void markForRemoval(WorkerInstanceHolder holder, InstanceScaling callback) throws InterruptedException;
 
 }

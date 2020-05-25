@@ -205,7 +205,7 @@ public class LoadBalancer implements InstanceManager {
 		}
 	}
 
-	public void removeRequest(WorkerInstanceHolder holder, Request request, AutoScaler callback) throws InterruptedException {
+	public void removeRequest(WorkerInstanceHolder holder, Request request, InstanceScaling callback) throws InterruptedException {
 		Log.i(LOG_TAG, "Remove request: " + request);
 		requestLock.lockInterruptibly();
 		try {
@@ -238,7 +238,7 @@ public class LoadBalancer implements InstanceManager {
 	}
 
 	@Override
-	public void markForRemoval(WorkerInstanceHolder holder, AutoScaler callback) throws InterruptedException {
+	public void markForRemoval(WorkerInstanceHolder holder, InstanceScaling callback) throws InterruptedException {
 		requestLock.lockInterruptibly();
 		try {
 			holder.markForRemoval();
