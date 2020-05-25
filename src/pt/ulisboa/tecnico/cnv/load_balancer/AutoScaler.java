@@ -45,6 +45,13 @@ import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
 import pt.ulisboa.tecnico.cnv.load_balancer.scaling.metric.MetricType;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+
 public class AutoScaler implements InstanceScaling {
 
 	private static final String LOG_TAG = AutoScaler.class.getSimpleName();
@@ -131,8 +138,10 @@ public class AutoScaler implements InstanceScaling {
 			DescribeInstancesResult result = ec2.describeInstances(request);
 			for (Reservation reserv : result.getReservations()) {
 				for (Instance inst : reserv.getInstances()) {
-					if (!inst.getState().getName().equals(InstanceStateName.Running.toString())) {
+					if (!inst.getState().getName().equals(InstanceStateName.Running.toString()) || !statusOk(inst)) {
 						allRunning = false;
+					} else {
+						Log.i(LOG_TAG, inst.getInstanceId() + " is now fully prepared to receive requests");
 					}
 				}
 			}
@@ -140,6 +149,31 @@ public class AutoScaler implements InstanceScaling {
 				autoScalerConfig.getTimeUnit().sleep(5);
 			}
 		} while (allRunning == false);
+	}
+
+	private boolean statusOk(Instance instance) {
+		HttpURLConnection connection = null;
+		try {
+			URL url = new URL("http://" + instance.getPublicIpAddress() + ":" + 8000 + "/status");
+			connection = (HttpURLConnection) url.openConnection();
+			connection.setDoOutput(true);
+			connection.setRequestMethod("GET");
+			BufferedReader rd = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+			String result = "";
+			String line;
+			
+			while ((line = rd.readLine()) != null) {
+				result += line;
+			}
+			rd.close();
+		} catch (IOException e) {
+			Log.i("ERROR", "Cannot connect");
+			return false;
+		} finally {
+			if (connection != null)
+				connection.disconnect();
+		}
+		return true;
 	}
 
 	/**
