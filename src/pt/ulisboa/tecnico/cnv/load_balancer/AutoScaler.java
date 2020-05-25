@@ -170,7 +170,7 @@ public class AutoScaler implements InstanceScaling {
 
 		} catch (IOException e) {
 
-			Log.e(LOG_TAG, "Status not OK", e);
+			Log.e(LOG_TAG, "Status not OK");
 			return false;
 
 		} finally {
@@ -569,7 +569,7 @@ public class AutoScaler implements InstanceScaling {
 
 	@Override
 	public void attemptCreateInstanceAsync(InstanceManager instanceManager) {
-		final int coolDown = autoScalerConfig.getWarmupPeriod() + 10;
+		final int coolDown = autoScalerConfig.getWarmupPeriod() + 15;
 
 		if (coolDownResult != null && !coolDownResult.isDone()) {
 			Log.i(LOG_TAG, "Refused instance creation - still in cooldown");

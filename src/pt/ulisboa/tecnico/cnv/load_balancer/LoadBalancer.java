@@ -200,7 +200,7 @@ public class LoadBalancer implements InstanceManager {
 		try {
 
 			if (predictInstanceScalingNecessity()) {
-				instScaling.createInstanceAsync(this);
+				instScaling.attemptCreateInstanceAsync(this);
 			}
 
 			while (!instances.first().isAvailable()) {
