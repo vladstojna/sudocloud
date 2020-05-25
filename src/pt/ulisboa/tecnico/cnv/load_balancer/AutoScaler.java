@@ -86,14 +86,14 @@ public class AutoScaler {
 	 * Starts the auto-scaling service
 	 */
 	public void start() {
-		int offset = autoScalerConfig.getCloudWatchOffset();
+		int delay = autoScalerConfig.getCloudWatchOffset() + autoScalerConfig.getCloudWatchPeriod();
 		int period = autoScalerConfig.getPollingPeriod();
 		TimeUnit timeUnit = autoScalerConfig.getTimeUnit();
 
 		Log.i(LOG_TAG, "Started auto-scaling service. Will execute in " +
-			offset + " " + timeUnit.toString());
+			delay + " " + timeUnit.toString());
 
-		cloudWatchExecutor.scheduleAtFixedRate(new EvaluationRunnable(), offset, period, timeUnit);
+		cloudWatchExecutor.scheduleAtFixedRate(new EvaluationRunnable(), delay, period, timeUnit);
 	}
 
 	/**
@@ -137,6 +137,7 @@ public class AutoScaler {
 			for (Instance i : instances) {
 				instanceManager.addInstance(new WorkerInstanceHolder(i));
 			}
+			return;
 		}
 
 		Set<Instance> instances = new HashSet<>();
@@ -184,6 +185,8 @@ public class AutoScaler {
 		if (mustAwaitWarmup) {
 			awaitWarmup();
 		}
+
+		currentInstanceCount.addAndGet(instances.size());
 		for (Instance i : instances) {
 			instanceManager.addInstance(new WorkerInstanceHolder(i));
 		}
@@ -244,7 +247,8 @@ public class AutoScaler {
 			.withMinCount(quantity)
 			.withMaxCount(quantity)
 			.withKeyName(workerConfig.getKeyName())
-			.withSecurityGroups(workerConfig.getSecurityGroup());
+			.withSecurityGroups(workerConfig.getSecurityGroup())
+			.withMonitoring(true);
 		RunInstancesResult runResult = ec2.runInstances(runRequest);
 
 		currentInstanceCount.addAndGet(quantity);
@@ -274,7 +278,7 @@ public class AutoScaler {
 	}
 
 	private boolean hasUnderflowed() {
-		return currentInstanceCount.get() > autoScalerConfig.getMinInstances();
+		return currentInstanceCount.get() < autoScalerConfig.getMinInstances();
 	}
 
 	private boolean isAtMax() {
@@ -362,10 +366,22 @@ public class AutoScaler {
 						metricDataResult.getValues().get(i) + "%");
 				}
 
-				Entry entry = new Entry(holder, metricType.calculate(metricDataResult.getValues()));
-				statistics.add(entry);
+				List<Double> values = metricDataResult.getValues();
+				int minSize = autoScalerConfig.getCloudWatchOffset() / autoScalerConfig.getCloudWatchPeriod();
+				if (values.size() < minSize) {
+					Log.i(LOG_TAG, holder.getInstance().getInstanceId() +
+						" : only " + values.size() + "/" + minSize + " metric(s), not considering");
+				} else {
+					Log.i(LOG_TAG, holder.getInstance().getInstanceId() +
+						" : " + values.size() + " metric(s) collected");
+					Entry entry = new Entry(holder, metricType.calculate(values));
+					statistics.add(entry);
+				}
 
 			}
+
+			if (statistics.isEmpty())
+				return;
 
 			int overloadedWorkers = 0;
 			List<Entry> underloadedWorkers = new ArrayList<>();
@@ -382,8 +398,10 @@ public class AutoScaler {
 				Log.i(LOG_TAG, "Workload imbalance may be present; both underloaded and overloaded workers exist");
 			} else if (overloadedWorkers > 0) {
 				Log.i(LOG_TAG, "Overloaded workers found");
-			} else {
+			} else if (!underloadedWorkers.isEmpty()) {
 				Log.i(LOG_TAG, "Underloaded workers found");
+			} else {
+				Log.i(LOG_TAG, "Workload seems balanced; no underloaded or overloaded workers found");
 			}
 
 			// TODO: scaling policy
@@ -392,7 +410,12 @@ public class AutoScaler {
 
 		@Override
 		public void run() {
-			evaluation();
+			try {
+				evaluation();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
 		}
 
 	}
