@@ -24,9 +24,6 @@ public class WebServer {
 		// health check endpoint
 		server.createContext("/status", new StatusHandler());
 
-		// loadbalancer heartbeat
-		server.createContext("/heartbeat", new HeartbeatHandler());
-
 		// be aware! infinite pool of threads!
 		server.setExecutor(Executors.newCachedThreadPool());
 

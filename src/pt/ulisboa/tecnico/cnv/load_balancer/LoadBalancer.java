@@ -21,8 +21,8 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 
-import pt.ulisboa.tecnico.cnv.load_balancer.heartbeat.HeartbeatInterface;
-import pt.ulisboa.tecnico.cnv.load_balancer.heartbeat.HeartbeatManager;
+import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingInterface;
+import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingScheduler;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
@@ -32,7 +32,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-public class LoadBalancer implements InstanceManager, HeartbeatInterface {
+public class LoadBalancer implements InstanceManager, WorkerPingInterface {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -73,7 +73,7 @@ public class LoadBalancer implements InstanceManager, HeartbeatInterface {
 		pendingRequests = new AtomicLong();
 
 		// initialize ping checking with instances
-		new HeartbeatManager(this);
+		new WorkerPingScheduler(this);
 
 		Log.i(LOG_TAG, "initialized");
 	}

@@ -1,4 +1,4 @@
-package pt.ulisboa.tecnico.cnv.load_balancer.heartbeat;
+package pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -24,22 +24,21 @@ import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-public class Heartbeat implements Runnable {
+public class WorkerPing implements Runnable {
 
-	private static final String LOG_TAG = Heartbeat.class.getSimpleName();
+	private static final String LOG_TAG = WorkerPing.class.getSimpleName();
 
 	// FIXME this is probably not right
 	private final AmazonEC2 ec2;
-	private HeartbeatInterface heartbeatInterface;
+	private WorkerPingInterface workerPingInterface;
 
-	public Heartbeat(HeartbeatInterface heartbeatInterface) {
-		System.out.println("Heartbeat thread initialized");
+	public WorkerPing(WorkerPingInterface workerPingInterface) {
 		ec2 = AmazonEC2ClientBuilder.defaultClient();
-		this.heartbeatInterface = heartbeatInterface;
+		this.workerPingInterface = workerPingInterface;
 	}
 
 	public void run() {
-		for (String workerIP : heartbeatInterface.getWorkerIPs())
+		for (String workerIP : workerPingInterface.getWorkerIPs())
 			heartbeat(workerIP);
 	}
 
@@ -52,7 +51,7 @@ public class Heartbeat implements Runnable {
 
 		try {
 			Log.i(LOG_TAG, "sending ping to worker: " + workerIP);
-			URL url = new URL("http://" + workerIP + ":8000/heartbeat");
+			URL url = new URL("http://" + workerIP + ":8000/status");
 
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setRequestMethod("POST");
