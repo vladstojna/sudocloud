@@ -2,6 +2,9 @@ package pt.ulisboa.tecnico.cnv.load_balancer.util;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -12,8 +15,12 @@ import java.util.Map;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
+import pt.ulisboa.tecnico.cnv.load_balancer.handler.SudokuHandler.RequestBodyReturn;
 
 public class HttpUtil {
+
+	private static final String LOG_TAG = HttpUtil.class.getSimpleName();
 
 	private static final int READ_BUFFER_SIZE = 8192;
 
@@ -28,7 +35,7 @@ public class HttpUtil {
 	 * instance). For this reason the code is converting from
 	 * HTTPExchange to HttpUrlConnection and back.
 	 **/
-	public static void proxyRequest(HttpExchange t, String serverAddress, int serverPort) throws IOException {
+	public static void proxyRequest(HttpExchange t, RequestBodyReturn callback , String serverAddress, int serverPort) throws IOException {
 
 		HttpURLConnection connection = null;
 
@@ -40,16 +47,22 @@ public class HttpUtil {
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setDoOutput(true); // allow sending data to connection
 
+			Log.i(LOG_TAG, "Forwarding request headers");
+
 			forwardRequestHeaders(t.getRequestHeaders(), connection);
 
+			Log.i(LOG_TAG, "Forwarding request body");
+
 			// read request body and forward it to worker instance
-			forwardStream(t.getRequestBody(), connection.getOutputStream());
+			forwardStream(callback.execute(t.getRequestBody()), connection.getOutputStream());
 
 			// build final response headers from headers received from worker instance
 			forwardResponseHeaders(t.getResponseHeaders(), connection);
 
+			Log.i(LOG_TAG, "Forwarding back response headers");
 			t.sendResponseHeaders(200, connection.getContentLengthLong());
 
+			Log.i(LOG_TAG, "Forwarding back response body");
 			// read response body from worker instance and add it to the final response
 			forwardStream(connection.getInputStream(), t.getResponseBody());
 		} finally {
@@ -99,7 +112,7 @@ public class HttpUtil {
 	 * In java9 inputStream.transferTo(outputStream) would have been a
 	 * nicer solution. But unfortunately this is java7
 	 **/
-	private static void forwardStream(InputStream in, OutputStream out) throws IOException {
+	public static void forwardStream(InputStream in, OutputStream out) throws IOException {
 		try (InputStream is = new DataInputStream(in);
 			OutputStream os = new DataOutputStream(out)) {
 
@@ -110,4 +123,5 @@ public class HttpUtil {
 			}
 		}
 	}
+
 }
