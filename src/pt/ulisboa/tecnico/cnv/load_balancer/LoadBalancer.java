@@ -21,6 +21,28 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 
+import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
+import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
+import com.amazonaws.services.dynamodbv2.model.GetItemResult;
+import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
+import com.amazonaws.services.dynamodbv2.model.KeyType;
+import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
+import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
+import com.amazonaws.services.dynamodbv2.util.TableUtils;
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
+import com.amazonaws.services.ec2.model.Filter;
+import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.Reservation;
+import com.amazonaws.services.ec2.model.RunInstancesRequest;
+import com.amazonaws.services.ec2.model.RunInstancesResult;
+import com.amazonaws.services.ec2.model.StartInstancesRequest;
+import com.amazonaws.services.ec2.model.Tag;
+import com.amazonaws.services.ec2.model.TagSpecification;
+
+import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingListener;
 import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingScheduler;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
@@ -31,7 +53,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-public class LoadBalancer implements InstanceManager {
+public class LoadBalancer implements InstanceManager, WorkerPingListener {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -72,7 +94,7 @@ public class LoadBalancer implements InstanceManager {
 		pendingRequests = new AtomicLong();
 
 		// initialize ping checking with instances
-		new WorkerPingScheduler(this);
+		new WorkerPingScheduler(this, this);
 
 		Log.i(LOG_TAG, "initialized");
 	}
@@ -227,4 +249,7 @@ public class LoadBalancer implements InstanceManager {
 		return result;
 	}
 	
+	public void onInstanceUnreachable(WorkerInstanceHolder holder) {
+		holder.onInstanceUnreachable();
+	}
 }

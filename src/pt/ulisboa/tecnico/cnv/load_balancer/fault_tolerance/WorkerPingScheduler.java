@@ -12,8 +12,8 @@ public class WorkerPingScheduler {
 	private ScheduledExecutorService executor;
 	private WorkerPing workerPing;
 
-	public WorkerPingScheduler(InstanceManager instanceManager) {
-		workerPing = new WorkerPing(instanceManager);
+	public WorkerPingScheduler(InstanceManager instanceManager,  WorkerPingListener workerPingListener) {
+		workerPing = new WorkerPing(instanceManager, workerPingListener);
 		executor = Executors.newSingleThreadScheduledExecutor();
 		executor.scheduleAtFixedRate((Runnable) workerPing, DELAY, PERIOD, TimeUnit.MILLISECONDS);
 	}

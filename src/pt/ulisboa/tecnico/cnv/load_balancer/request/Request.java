@@ -82,4 +82,8 @@ public class Request {
 			", cost=" + cost + "]";
 	}
 
+	// Fixme do through handler interface
+	public void onRequestFailed() {
+		System.out.println("Failed request");
+	}
 }

@@ -10,12 +10,17 @@ import com.amazonaws.services.ec2.model.Instance;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Id;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingListener;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
+
 /**
  * Holder that has all information regarding an instance,
  * the Instance it runs on, all the requests currently being processed by that Instance
  * and the total cost of these requests
  */
 public class WorkerInstanceHolder implements Comparable<WorkerInstanceHolder> {
+
+	private static final String LOG_TAG = WorkerInstanceHolder.class.getSimpleName();
 
 	private final Instance instance;
 
@@ -164,6 +169,17 @@ public class WorkerInstanceHolder implements Comparable<WorkerInstanceHolder> {
 		}
 
 		return 1;
+
+	}
+
+        /**
+	 * Instance assumed dead, returns requests it was processing
+	 **/
+	public void onInstanceUnreachable() {
+		Log.i(LOG_TAG, "instance " + getInstanceId() + " unreachable");
+		for (Request request : requests.values()) {
+			request.onRequestFailed();
+		}
 	}
 
 }

@@ -31,22 +31,29 @@ public class WorkerPing implements Runnable {
 
 	// FIXME this is probably not right
 	private final AmazonEC2 ec2;
-	private final InstanceManager instanceManager;
 
-	public WorkerPing(InstanceManager im) {
+	private final InstanceManager instanceManager;
+	private WorkerPingListener workerPingListener;
+
+	public WorkerPing(InstanceManager im, WorkerPingListener workerPingListener) {
 		ec2 = AmazonEC2ClientBuilder.defaultClient();
 		this.instanceManager = im;
+		this.workerPingListener = workerPingListener;
 	}
 
 	public void run() {
-		for (WorkerInstanceHolder holder : instanceManager.getInstances())
-			ping(holder);
+		for (WorkerInstanceHolder holder : instanceManager.getInstances()) {
+			boolean pingSuccess = ping(holder);
+			if (!pingSuccess)
+				workerPingListener.onInstanceUnreachable(holder);
+		}
 	}
 
 	/**
 	 * Sends a ping to the respective endpoint on the worker
+	 * @return success state of the ping
 	 **/
-	private void ping(WorkerInstanceHolder worker) {
+	private boolean ping(WorkerInstanceHolder worker) {
 
 		HttpURLConnection connection = null;
 		StringBuilder response = new StringBuilder();
@@ -72,15 +79,15 @@ public class WorkerPing implements Runnable {
 			rd.close();
 
 			Log.i(LOG_TAG, "Worker " + worker.getInstanceId() + " status: " + response.toString());
-
 		} catch (Exception e) {
 			Log.i(LOG_TAG, "Worker " + worker.getInstanceId() + " is unreachable");
-
+			return false;
 		} finally {
 			if (connection != null) {
 				connection.disconnect();
 			}
 		}
+		return true;
 
 	}
 }
