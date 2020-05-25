@@ -1,5 +1,8 @@
 # autoscaler configuration
 
+# polling period (seconds)
+pollingPeriod=120
+
 # number of instances
 minInstances=1
 maxInstances=5

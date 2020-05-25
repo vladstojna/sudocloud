@@ -69,6 +69,7 @@ public class WebServer {
 		try (InputStream is = WebServer.class.getClassLoader().getResourceAsStream("autoscaler.properties")) {
 			props.load(is);
 			return new AutoScalerConfig(
+				Integer.parseUnsignedInt(props.getProperty("pollingPeriod")),
 				Integer.parseUnsignedInt(props.getProperty("minInstances")),
 				Integer.parseUnsignedInt(props.getProperty("maxInstances")),
 				Integer.parseUnsignedInt(props.getProperty("warmupPeriod")),

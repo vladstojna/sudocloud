@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit;
 
 public class AutoScalerConfig {
 
+	private final int pollingPeriod;
 	private final int minInstances;
 	private final int maxInstances;
 	private final int warmupPeriod;
@@ -14,9 +15,10 @@ public class AutoScalerConfig {
 	private final String region;
 	private final TimeUnit timeUnit;
 
-	public AutoScalerConfig(int minInstances, int maxInstances, int warmupPeriod,
+	public AutoScalerConfig(int pollingPeriod, int minInstances, int maxInstances, int warmupPeriod,
 			int minCpuUsage, int maxCpuUsage, int cloudWatchPeriod, int cloudWatchOffset,
 			String region, TimeUnit timeUnit) {
+		this.pollingPeriod = pollingPeriod;
 		this.minInstances = minInstances;
 		this.maxInstances = maxInstances;
 		this.warmupPeriod = warmupPeriod;
@@ -62,6 +64,10 @@ public class AutoScalerConfig {
 
 	public TimeUnit getTimeUnit() {
 		return timeUnit;
+	}
+
+	public int getPollingPeriod() {
+		return pollingPeriod;
 	}
 
 }
