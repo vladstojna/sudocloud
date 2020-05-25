@@ -89,12 +89,9 @@ public class WebServer {
 		AutoScalerConfig autoScalerConfig = getAutoScalerConfig();
 
 		LoadBalancer lb = new LoadBalancer(dynamoDBConfig, workerConfig, predictorConfig);
-		// FIXME: null parameter
-		AutoScaler autoScaler = new AutoScaler(autoScalerConfig, workerConfig, null, new Median());
+		AutoScaler autoScaler = new AutoScaler(autoScalerConfig, workerConfig, lb, new Median());
 
-		// start autoscaler thread
-		// ScalerThread scaler = new ScalerThread(lb);
-		// scaler.start();
+		autoScaler.initialInstanceStartup();
 
 		// please note that iptables is redirecting traffic from port 80
 		// to port 8080. This is so that this webserver can run as a

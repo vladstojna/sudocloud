@@ -1,8 +1,6 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -25,18 +23,6 @@ import com.amazonaws.services.dynamodbv2.model.KeyType;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import com.amazonaws.services.dynamodbv2.util.TableUtils;
-import com.amazonaws.services.ec2.AmazonEC2;
-import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
-import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
-import com.amazonaws.services.ec2.model.DescribeInstancesResult;
-import com.amazonaws.services.ec2.model.Filter;
-import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.Reservation;
-import com.amazonaws.services.ec2.model.RunInstancesRequest;
-import com.amazonaws.services.ec2.model.RunInstancesResult;
-import com.amazonaws.services.ec2.model.StartInstancesRequest;
-import com.amazonaws.services.ec2.model.Tag;
-import com.amazonaws.services.ec2.model.TagSpecification;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
@@ -46,7 +32,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.predictor.StochasticGradientDescent3
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-public class LoadBalancer {
+public class LoadBalancer implements InstanceManager {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -55,7 +41,6 @@ public class LoadBalancer {
 	private final PredictorConfig predictorConfig;
 
 	private final AmazonDynamoDB dynamoDB;
-	private final AmazonEC2 ec2;
 
 	private final Lock requestLock = new ReentrantLock();
 	private final Condition requestCondition = requestLock.newCondition();
@@ -82,18 +67,12 @@ public class LoadBalancer {
 		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.BalancedComparator());
 		predictors = new ConcurrentHashMap<>();
 
-		ec2 = AmazonEC2ClientBuilder.standard()
-			.withCredentials(credentialsProvider)
-			.withRegion(workerConfig.getRegion())
-			.build();
-
 		dynamoDB = AmazonDynamoDBClientBuilder.standard()
 			.withCredentials(credentialsProvider)
 			.withRegion(dynamoDBConfig.getRegion())
 			.build();
 
 		createTableIfNotExists();
-		getOrCreateWorkerInstances();
 
 		Log.i(LOG_TAG, "initialized");
 	}
@@ -121,66 +100,6 @@ public class LoadBalancer {
 			TableUtils.waitUntilActive(dynamoDB, dynamoDBConfig.getTableName());
 		} catch (Exception e) {
 			throw new AmazonClientException("Table creation error", e);
-		}
-	}
-
-	/**
-	 * Find the running or stopped worker instances and registers them.
-	 * Starts stopped instances.
-	 * If no instances found, create a new one.
-	 * They are tagged with the tag "type:worker"
-	 **/
-	private void getOrCreateWorkerInstances() {
-		Log.i(LOG_TAG, "Initial worker instance lookup");
-
-		Filter tagFilter = new Filter("tag:" + workerConfig.getTagKey())
-			.withValues(workerConfig.getTagValue());
-		Filter statusFilter = new Filter("instance-state-name")
-			.withValues("running", "stopped");
-
-		DescribeInstancesRequest request = new DescribeInstancesRequest()
-			.withFilters(tagFilter, statusFilter);
-
-		// Find the running instances
-		DescribeInstancesResult response = ec2.describeInstances(request);
-
-		// If no worker instances, create one
-		if (response.getReservations().isEmpty()) {
-			RunInstancesRequest runRequest = new RunInstancesRequest();
-			runRequest.withImageId(workerConfig.getImageId())
-				.withTagSpecifications(new TagSpecification()
-					.withResourceType("instance")
-					.withTags(new Tag(workerConfig.getTagKey(), workerConfig.getTagValue())))
-				.withInstanceType(workerConfig.getType())
-				.withMinCount(1)
-				.withMaxCount(1)
-				.withKeyName(workerConfig.getKeyName())
-				.withSecurityGroups(workerConfig.getSecurityGroup());
-			RunInstancesResult runResult = ec2.runInstances(runRequest);
-			Instance inst = runResult.getReservation().getInstances().get(0);
-			instances.add(new WorkerInstanceHolder(inst));
-			Log.i(LOG_TAG, "No worker instances found, created one with id " + inst.getInstanceId());
-			return;
-		}
-
-		List<String> stoppedInstanceIds = new ArrayList<>();
-		for (Reservation reservation : response.getReservations()) {
-			for (Instance instance : reservation.getInstances()) {
-				if (instance.getState().getName().equals("stopped")) {
-					stoppedInstanceIds.add(instance.getInstanceId());
-					Log.i(LOG_TAG, "Found STOPPED worker instance with id " + instance.getInstanceId());
-				} else {
-					Log.i(LOG_TAG, "Found RUNNING worker instance with id " + instance.getInstanceId());
-				}
-				instances.add(new WorkerInstanceHolder(instance));
-			}
-		}
-
-		if (!stoppedInstanceIds.isEmpty()) {
-			Log.i(LOG_TAG, "Starting stopped instances");
-			StartInstancesRequest startRequest = new StartInstancesRequest();
-			startRequest.withInstanceIds(stoppedInstanceIds);
-			ec2.startInstances(startRequest);
 		}
 	}
 
@@ -264,10 +183,6 @@ public class LoadBalancer {
 		Log.i(LOG_TAG, "Updated cost for request " + request);
 	}
 
-	public void addInstance(Instance instance) {
-		instances.add(new WorkerInstanceHolder(instance));
-	}
-
 	public WorkerInstanceHolder chooseInstance(Request request) throws InterruptedException {
 		getAndUpdateCost(request);
 		Log.i("RequestQueue", "Enqueued request " + request.getId());
@@ -306,6 +221,21 @@ public class LoadBalancer {
 		} finally {
 			requestLock.unlock();
 		}
+	}
+
+	@Override
+	public Iterable<WorkerInstanceHolder> getInstances() {
+		return instances;
+	}
+
+	@Override
+	public void addInstance(WorkerInstanceHolder instance) {
+		instances.add(instance);
+	}
+
+	@Override
+	public void markForRemoval(WorkerInstanceHolder instance) {
+		// TODO
 	}
 
 }

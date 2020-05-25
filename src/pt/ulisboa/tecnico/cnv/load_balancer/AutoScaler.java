@@ -1,10 +1,14 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
@@ -17,10 +21,15 @@ import com.amazonaws.services.cloudwatch.model.MetricDataResult;
 import com.amazonaws.services.cloudwatch.model.MetricStat;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
+import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.ResourceType;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.RunInstancesResult;
+import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.ec2.model.TagSpecification;
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
@@ -46,10 +55,10 @@ public class AutoScaler {
 
 	//private final IEvaluationCallback evaluationCallback;
 
-	private final Iterable<WorkerInstanceHolder> workers;
+	private final InstanceManager instanceManager;
 	private final MetricType metricType;
 
-	public AutoScaler(AutoScalerConfig asc, WorkerInstanceConfig wc, Iterable<WorkerInstanceHolder> workers, MetricType mode) {
+	public AutoScaler(AutoScalerConfig asc, WorkerInstanceConfig wc, InstanceManager im, MetricType mode) {
 
 		this.workerConfig = wc;
 		this.autoScalerConfig = asc;
@@ -65,12 +74,128 @@ public class AutoScaler {
 
 		// this.evaluationCallback = evaluationCallback;
 
-		this.workers = workers;
+		this.instanceManager = im;
 		this.metricType = mode;
 	}
 
 	public WorkerInstanceHolder startInstance() {
 		return this.startInstances(1).get(0);
+	}
+
+	/**
+	 * Await warmup time
+	 * @throws InterruptedException if thread is interrupted
+	 */
+	private void awaitWarmup() throws InterruptedException {
+		Log.i(LOG_TAG, "Waiting for warmup...");
+		autoScalerConfig.getTimeUnit().sleep(autoScalerConfig.getWarmupPeriod());
+	}
+
+	/**
+	 * Find the running or stopped worker instances and registers them.
+	 * Starts stopped instances.
+	 * If no instances found, creates new ones.
+	 * Awaits the warmup time if necessary.
+	 * Workers are tagged with the tag "type:worker"
+	 * @throws InterruptedException if thread is interrupted
+	 */
+	public void initialInstanceStartup() throws InterruptedException {
+		Log.i(LOG_TAG, "Initial worker instance lookup");
+
+		Filter tagFilter = new Filter("tag:" + workerConfig.getTagKey())
+			.withValues(workerConfig.getTagValue());
+		Filter statusFilter = new Filter("instance-state-name")
+			.withValues("running", "stopped");
+
+		DescribeInstancesRequest request = new DescribeInstancesRequest()
+			.withFilters(tagFilter, statusFilter);
+
+		// Find the running instances
+		DescribeInstancesResult response = ec2.describeInstances(request);
+
+		int minInstances = autoScalerConfig.getMinInstances();
+
+		// If no worker instances, create how many necessary
+		if (response.getReservations().isEmpty()) {
+			List<Instance> instances = createInstances(minInstances);
+			Log.i(LOG_TAG, "No worker instances found, created " + minInstances);
+			awaitWarmup();
+			for (Instance i : instances) {
+				instanceManager.addInstance(new WorkerInstanceHolder(i));
+			}
+		}
+
+		Set<Instance> instances = new HashSet<>();
+		for (Reservation r : response.getReservations()) {
+			for (Instance i : r.getInstances()) {
+				instances.add(i);
+			}
+		}
+
+		boolean mustAwaitWarmup = false;
+
+		// if too many initial instances, terminate some
+		if (instances.size() > minInstances) {
+			Log.i(LOG_TAG, "Too many instances exist (" + instances.size() + "/" + minInstances + ")");
+			List<Instance> instancesToTerminate = new ArrayList<>(instances.size() - minInstances);
+			Iterator<Instance> iter = instances.iterator();
+			for (int i = 0; i < instances.size() - minInstances; i++) {
+				instancesToTerminate.add(iter.next());
+			}
+			terminateInstances(instancesToTerminate);
+			instances.removeAll(instancesToTerminate);
+		// if too few instances, create some
+		} else if (instances.size() < minInstances) {
+			Log.i(LOG_TAG, "Too few instances exist (" + instances.size() + "/" + minInstances + ")");
+			List<Instance> createdInstances = createInstances(minInstances - instances.size());
+			instances.addAll(createdInstances);
+			mustAwaitWarmup = true;
+		}
+
+		// start stopped instances
+		StartInstancesRequest startRequest = new StartInstancesRequest();
+		for (Instance i : instances) {
+			if (i.getState().getName().equals("stopped")) {
+				Log.i(LOG_TAG, "Found STOPPED worker instance with id " + i.getInstanceId());
+				mustAwaitWarmup = true;
+				startRequest.withInstanceIds(i.getInstanceId());
+			} else {
+				Log.i(LOG_TAG, "Found RUNNING worker instance with id " + i.getInstanceId());
+			}
+		}
+
+		if (!startRequest.getInstanceIds().isEmpty())
+			ec2.startInstances(startRequest);
+
+		if (mustAwaitWarmup) {
+			awaitWarmup();
+		}
+		for (Instance i : instances) {
+			instanceManager.addInstance(new WorkerInstanceHolder(i));
+		}
+	}
+
+	private void terminateInstances(Collection<Instance> instances) {
+		Log.i(LOG_TAG, "Terminating " + instances.size() + " instances");
+		TerminateInstancesRequest request = new TerminateInstancesRequest();
+		for (Instance i : instances)
+				request.withInstanceIds(i.getInstanceId());
+		ec2.terminateInstances(request);
+	}
+
+	private List<Instance> createInstances(int quantity) {
+		RunInstancesRequest runRequest = new RunInstancesRequest();
+		runRequest.withImageId(workerConfig.getImageId())
+			.withTagSpecifications(new TagSpecification()
+				.withResourceType(ResourceType.Instance)
+				.withTags(new Tag(workerConfig.getTagKey(), workerConfig.getTagValue())))
+			.withInstanceType(workerConfig.getType())
+			.withMinCount(quantity)
+			.withMaxCount(quantity)
+			.withKeyName(workerConfig.getKeyName())
+			.withSecurityGroups(workerConfig.getSecurityGroup());
+		RunInstancesResult runResult = ec2.runInstances(runRequest);
+		return runResult.getReservation().getInstances();
 	}
 
 	public List<WorkerInstanceHolder> startInstances(int numberInstances) {
@@ -103,9 +228,10 @@ public class AutoScaler {
 	public void terminateInstance(WorkerInstanceHolder worker) {
 		List<WorkerInstanceHolder> workers = new ArrayList<>();
 		workers.add(worker);
-		this.terminateInstances(workers);
+		// this.terminateInstances(workers);
 	}
 
+	/*
 	public void terminateInstances(List<WorkerInstanceHolder> workers) {
 		for (WorkerInstanceHolder worker : workers) {
 			String instanceId = worker.getInstance().getInstanceId();
@@ -116,10 +242,11 @@ public class AutoScaler {
 			Log.i(LOG_TAG, String.format("Successfully terminated EC2 instance %s", instanceId));
 		}
 	}
+	*/
 
 	private void evaluation() {
 		Map<WorkerInstanceHolder, Double> statistics = new HashMap<>();
-		for (WorkerInstanceHolder worker : workers) {
+		for (WorkerInstanceHolder worker : instanceManager.getInstances()) {
 			GetMetricDataResult getMetricDataResult = cw.getMetricData(getMetricDataRequest(worker));
 			// there is only one metric data always
 			MetricDataResult metricDataResult = getMetricDataResult.getMetricDataResults().get(0);
