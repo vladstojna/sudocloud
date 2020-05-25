@@ -36,7 +36,7 @@ public class SudokuHandler implements HttpHandler {
 			QueryParameters queryParams = new QueryParameters(query);
 			Request request = new Request(query, queryParams);
 			WorkerInstanceHolder instanceHolder = lb.chooseInstance(request);
-			
+
 			HttpUtil.proxyRequest(t,
 				instanceHolder.getInstance().getPrivateIpAddress(),
 				lb.getWorkerInstanceConfig().getPort());

@@ -49,7 +49,6 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 
 public class AutoScaler implements InstanceScaling {
@@ -153,27 +152,34 @@ public class AutoScaler implements InstanceScaling {
 
 	private boolean statusOk(Instance instance) {
 		HttpURLConnection connection = null;
+		BufferedReader rd = null;
 		try {
-			URL url = new URL("http://" + instance.getPublicIpAddress() + ":" + 8000 + "/status");
+			URL url = new URL("http://" + instance.getPublicIpAddress() + ":" + workerConfig.getPort() + "/status");
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setDoOutput(true);
 			connection.setRequestMethod("GET");
-			BufferedReader rd = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-			String result = "";
-			String line;
-			
-			while ((line = rd.readLine()) != null) {
-				result += line;
-			}
-			rd.close();
+			rd = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+
+			while (rd.readLine() != null) { }
+
+			return true;
+
 		} catch (IOException e) {
-			Log.i("ERROR", "Cannot connect");
+
+			Log.e(LOG_TAG, "Status not OK", e);
 			return false;
+
 		} finally {
 			if (connection != null)
 				connection.disconnect();
+			if (rd != null) {
+				try {
+					rd.close();
+				} catch (IOException e) {
+					Log.e(LOG_TAG, e);
+				}
+			}
 		}
-		return true;
 	}
 
 	/**
