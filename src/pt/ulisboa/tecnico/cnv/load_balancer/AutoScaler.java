@@ -122,7 +122,7 @@ public class AutoScaler implements InstanceScaling {
 	 * @param instances the collection of instances to warmup
 	 * @throws InterruptedException if thead is interrupted
 	 */
-	private void awaitDynamicWarmup(Collection<Instance> instances) throws InterruptedException {
+	private List<Instance> awaitDynamicWarmup(Collection<Instance> instances) throws InterruptedException {
 		if (instances == null || instances.isEmpty()) {
 			Log.i(LOG_TAG, "instances is null or empty, awaiting normal warmup");
 			awaitWarmup();
@@ -135,12 +135,15 @@ public class AutoScaler implements InstanceScaling {
 			request.withInstanceIds(inst.getInstanceId());
 		}
 
+		List<Instance> resultingInstances;
 		boolean allRunning;
 		do {
 			allRunning = true;
+			resultingInstances = new ArrayList<>();
 			DescribeInstancesResult result = ec2.describeInstances(request);
 			for (Reservation reserv : result.getReservations()) {
 				for (Instance inst : reserv.getInstances()) {
+					resultingInstances.add(inst);
 					if (!inst.getState().getName().equals(InstanceStateName.Running.toString()) || !statusOk(inst)) {
 						allRunning = false;
 					} else {
@@ -152,6 +155,8 @@ public class AutoScaler implements InstanceScaling {
 				autoScalerConfig.getTimeUnit().sleep(5);
 			}
 		} while (allRunning == false);
+
+		return resultingInstances;
 	}
 
 	private boolean statusOk(Instance instance) {
@@ -214,7 +219,7 @@ public class AutoScaler implements InstanceScaling {
 		if (response.getReservations().isEmpty()) {
 			List<Instance> instances = createInstances(minInstances);
 			Log.i(LOG_TAG, "No worker instances found, created " + minInstances);
-			awaitDynamicWarmup(instances);
+			instances = awaitDynamicWarmup(instances);
 			for (Instance i : instances) {
 				instanceManager.addInstance(new WorkerInstanceHolder(i));
 			}
@@ -267,12 +272,18 @@ public class AutoScaler implements InstanceScaling {
 			throw new IllegalStateException("Computed instance list size does not match minimum instance count");
 		}
 
+		List<Instance> instanceList = null;
 		if (mustAwaitWarmup) {
-			awaitDynamicWarmup(instances);
+			instanceList = awaitDynamicWarmup(instances);
+			if (instanceList.size() != minInstances) {
+				throw new IllegalStateException("Computed instance list size does not match minimum instance count");
+			}
 		}
 
+		Iterable<Instance> resultingInstances = (instanceList == null ? instances : instanceList);
+
 		setCurrentInstanceCount(minInstances);
-		for (Instance i : instances) {
+		for (Instance i : resultingInstances) {
 			instanceManager.addInstance(new WorkerInstanceHolder(i));
 		}
 	}
@@ -541,8 +552,8 @@ public class AutoScaler implements InstanceScaling {
 				Instance instance = createInstance();
 				if (instance != null) {
 					try {
-						awaitDynamicWarmup(Arrays.asList(instance));
-						callback.addInstance(new WorkerInstanceHolder(instance));
+						List<Instance> result = awaitDynamicWarmup(Arrays.asList(instance));
+						callback.addInstance(new WorkerInstanceHolder(result.get(0)));
 					} catch (InterruptedException e) {
 						terminateInstance(instance);
 						Log.e(LOG_TAG, e);

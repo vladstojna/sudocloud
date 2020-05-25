@@ -38,7 +38,7 @@ public class SudokuHandler implements HttpHandler {
 			WorkerInstanceHolder instanceHolder = lb.chooseInstance(request, as);
 
 			HttpUtil.proxyRequest(t,
-				instanceHolder.getInstance().getPrivateIpAddress(),
+				instanceHolder.getInstance().getPublicIpAddress(),
 				lb.getWorkerInstanceConfig().getPort());
 
 			lb.removeRequest(instanceHolder, request, as);
