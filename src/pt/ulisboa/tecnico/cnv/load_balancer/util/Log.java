@@ -25,15 +25,20 @@ public class Log {
 	}
 
 	public static final void e(String text) {
-		log(System.out, "[%s] [%s] %s%n", dateFormat.format(new Date()), "info", text);
+		log(System.out, "[%s] [%s] %s%n", dateFormat.format(new Date()), "erro", text);
 	}
 
 	public static final void e(String tag, String text) {
-		log(System.out, "[%s] [%s] [%s] %s%n", dateFormat.format(new Date()), "info", tag, text);
+		log(System.out, "[%s] [%s] [%s] %s%n", dateFormat.format(new Date()), "erro", tag, text);
+	}
+
+	public static final void e(Throwable t) {
+		log(System.out, "[%s] [%s] %s%n", dateFormat.format(new Date()), "erro", t.getMessage());
+		t.printStackTrace();
 	}
 
 	public static final void e(String tag, Throwable t) {
-		log(System.out, "[%s] [%s] [%s] %s%n", dateFormat.format(new Date()), "info", tag, t.getMessage());
+		log(System.out, "[%s] [%s] [%s] %s%n", dateFormat.format(new Date()), "erro", tag, t.getMessage());
 		t.printStackTrace();
 	}
 
