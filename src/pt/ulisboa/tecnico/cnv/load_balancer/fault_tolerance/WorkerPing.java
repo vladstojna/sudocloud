@@ -10,6 +10,13 @@ import java.io.OutputStreamWriter;
 import java.io.DataOutputStream;
 import java.io.BufferedWriter;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.DescribeTagsRequest;
@@ -21,6 +28,8 @@ import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 
+import java.net.SocketTimeoutException;
+
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
 import pt.ulisboa.tecnico.cnv.load_balancer.InstanceManager;
@@ -29,7 +38,7 @@ public class WorkerPing implements Runnable {
 
 	private static final String LOG_TAG = WorkerPing.class.getSimpleName();
 
-	// FIXME this is probably not right
+	private static final int PING_TIMEOUT =  3; // ping timeout in seconds
 	private final AmazonEC2 ec2;
 
 	private final InstanceManager instanceManager;
@@ -42,10 +51,32 @@ public class WorkerPing implements Runnable {
 	}
 
 	public void run() {
-		for (WorkerInstanceHolder holder : instanceManager.getInstances()) {
-			boolean pingSuccess = ping(holder);
-			if (!pingSuccess)
+		for (final WorkerInstanceHolder holder : instanceManager.getInstances()) {
+			ExecutorService executor = Executors.newSingleThreadExecutor();
+
+			Future<?> result = executor.submit(new Runnable() {
+					@Override
+					public void run() {
+						Log.i(LOG_TAG, "Started running ping");
+						ping(holder);
+						Log.i(LOG_TAG, "Finished ping");
+					}
+				});
+
+			long before = System.currentTimeMillis();
+
+			try {
+				result.get(PING_TIMEOUT, TimeUnit.SECONDS);
+			} catch (TimeoutException e) {
+				Log.i(LOG_TAG, "Aborted ping due to timeout");
 				workerPingListener.onInstanceUnreachable(holder);
+				result.cancel(true);
+			} catch (InterruptedException e ) {
+				Log.i(LOG_TAG, "Ping interrupted due to timeout");
+				e.printStackTrace();
+			} catch (ExecutionException e ) {
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -68,17 +99,24 @@ public class WorkerPing implements Runnable {
 			connection.setRequestProperty("Content-Length",
 						      Integer.toString(0));
 
+			Log.i(LOG_TAG, "2 sending ping to worker: " + worker.getInstanceId());
+
 			//Get Response
 			InputStream is = connection.getInputStream();
 			BufferedReader rd = new BufferedReader(new InputStreamReader(is));
 			String line;
 			while ((line = rd.readLine()) != null) {
+			    Log.i(LOG_TAG, "3 sending ping to worker: " + worker.getInstanceId());
+
 				response.append(line);
 				response.append('\r');
 			}
 			rd.close();
 
 			Log.i(LOG_TAG, "Worker " + worker.getInstanceId() + " status: " + response.toString());
+		} catch (SocketTimeoutException e) {
+			Log.i(LOG_TAG, "Worker " + worker.getInstanceId() + " timed out");
+			return false;
 		} catch (Exception e) {
 			Log.i(LOG_TAG, "Worker " + worker.getInstanceId() + " is unreachable");
 			return false;

@@ -12,8 +12,11 @@ import java.util.Map;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 public class HttpUtil {
+
+	private static final String LOG_TAG = HttpUtil.class.getSimpleName();
 
 	private static final int READ_BUFFER_SIZE = 8192;
 
@@ -40,7 +43,11 @@ public class HttpUtil {
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setDoOutput(true); // allow sending data to connection
 
+			Log.i(LOG_TAG, "Forwarding request headers");
+
 			forwardRequestHeaders(t.getRequestHeaders(), connection);
+
+			Log.i(LOG_TAG, "Forwarding request body");
 
 			// read request body and forward it to worker instance
 			forwardStream(t.getRequestBody(), connection.getOutputStream());
@@ -48,8 +55,10 @@ public class HttpUtil {
 			// build final response headers from headers received from worker instance
 			forwardResponseHeaders(t.getResponseHeaders(), connection);
 
+			Log.i(LOG_TAG, "Forwarding back response headers");
 			t.sendResponseHeaders(200, connection.getContentLengthLong());
 
+			Log.i(LOG_TAG, "Forwarding back response body");
 			// read response body from worker instance and add it to the final response
 			forwardStream(connection.getInputStream(), t.getResponseBody());
 		} finally {

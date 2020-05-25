@@ -250,6 +250,9 @@ public class LoadBalancer implements InstanceManager, WorkerPingListener {
 	}
 	
 	public void onInstanceUnreachable(WorkerInstanceHolder holder) {
+		instances.remove(holder); // FIXME call InstanceManager
+		// instead and deal with concurrency.
+	
 		holder.onInstanceUnreachable();
 	}
 }

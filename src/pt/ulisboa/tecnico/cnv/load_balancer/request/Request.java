@@ -1,12 +1,18 @@
 package pt.ulisboa.tecnico.cnv.load_balancer.request;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.handler.HandlerInterface;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
+
 public class Request {
+
+	private static final String LOG_TAG = Request.class.getSimpleName();
 
 	private final Id id;
 	private final String query;
 	private final QueryParameters queryParameters;
 
 	private long cost;
+	private volatile HandlerInterface handler;
 
 	public Request(String query, QueryParameters queryParameters) {
 		this.id = new Id();
@@ -84,6 +90,16 @@ public class Request {
 
 	// Fixme do through handler interface
 	public void onRequestFailed() {
-		System.out.println("Failed request");
+		Log.i(LOG_TAG, "Request with id '" + getId() + " failed");
+		if (handler != null)
+			handler.onRequestFailed();
+	}
+
+	public void registerHandler(HandlerInterface handler) {
+		this.handler = handler;
+	}
+
+	public void unregisterHander() {
+		this.handler = null;
 	}
 }
