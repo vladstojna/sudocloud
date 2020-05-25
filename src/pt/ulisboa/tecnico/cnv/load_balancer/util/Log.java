@@ -42,4 +42,9 @@ public class Log {
 		t.printStackTrace();
 	}
 
+	public static final void e(String tag, String text, Throwable t) {
+		log(System.out, "[%s] [%s] [%s] %s%n", dateFormat.format(new Date()), "erro", tag, text);
+		t.printStackTrace();
+	}
+
 }
