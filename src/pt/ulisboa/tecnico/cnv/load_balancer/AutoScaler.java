@@ -372,10 +372,11 @@ public class AutoScaler {
 					Log.i(LOG_TAG, holder.getInstance().getInstanceId() +
 						" : only " + values.size() + "/" + minSize + " metric(s), not considering");
 				} else {
+					double result = metricType.calculate(values);
+					statistics.add(new Entry(holder, result));
 					Log.i(LOG_TAG, holder.getInstance().getInstanceId() +
-						" : " + values.size() + " metric(s) collected");
-					Entry entry = new Entry(holder, metricType.calculate(values));
-					statistics.add(entry);
+						" : " + values.size() + " metric(s) collected (" +
+						metricType + " = " + result + ")");
 				}
 
 			}
