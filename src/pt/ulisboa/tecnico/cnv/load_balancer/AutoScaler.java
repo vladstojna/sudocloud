@@ -430,7 +430,7 @@ public class AutoScaler implements InstanceScaling {
 			if (overloadedInstances > underloadedInstances.size()) {
 				createInstanceAsync(instanceManager);
 			} else if (underloadedInstances.size() > overloadedInstances) {
-				if (!subIfNoUnderflow(1)) {
+				if (subIfNoUnderflow(1)) {
 					instanceManager.markForRemoval(underloadedInstances.get(0).holder, AutoScaler.this);
 				} else {
 					Log.e(LOG_TAG, "Unable to mark instance for removal: already at minimum count");
