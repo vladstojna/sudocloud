@@ -26,7 +26,7 @@ public class HeartbeatHandler implements HttpHandler {
 
 	// interface to be implemented by loadbalancer
 	public interface Callback {
-		void workerHeartbeat(String workerId);
+		void onWorkerHeartbeat(String workerId);
 	}
 
 	public HeartbeatHandler(LoadBalancer lb) {
@@ -38,7 +38,7 @@ public class HeartbeatHandler implements HttpHandler {
 		QueryParameters queryParams = new QueryParameters(query);
 
 		final String workerId = queryParams.getWorkerId();
-		lb.workerHeartbeat(workerId);
+		lb.onWorkerHeartbeat(workerId);
 
 		// send response
 		t.sendResponseHeaders(200, "OK".length());

@@ -51,8 +51,10 @@ import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.HeartbeatHandler;
+import pt.ulisboa.tecnico.cnv.load_balancer.heartbeat.HeartbeatManager;
+import pt.ulisboa.tecnico.cnv.load_balancer.heartbeat.HeartbeatListener;
 
-public class LoadBalancer implements  HeartbeatHandler.Callback {
+public class LoadBalancer implements  HeartbeatHandler.Callback, HeartbeatListener {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -68,6 +70,8 @@ public class LoadBalancer implements  HeartbeatHandler.Callback {
 
 	private final ConcurrentSkipListSet<WorkerInstanceHolder> instances;
 	private final ConcurrentMap<String, StochasticGradientDescent3D> predictors;
+
+	private HeartbeatManager heartbeatManager;
 
 	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc, PredictorConfig pc) {
 
@@ -102,6 +106,8 @@ public class LoadBalancer implements  HeartbeatHandler.Callback {
 		createTableIfNotExists();
 		getOrCreateWorkerInstances();
 
+		heartbeatManager = new HeartbeatManager(this);
+		
 		Log.i(LOG_TAG, "initialized");
 	}
 
@@ -343,7 +349,11 @@ public class LoadBalancer implements  HeartbeatHandler.Callback {
 	/**
 	 * Handler for when worker's heartbeat is received
 	 **/
-	public void workerHeartbeat(String workerId) {
+	public void onWorkerHeartbeat(String workerId) {
 		Log.i(LOG_TAG, "Heartbeat from worker " + workerId);
+	}
+
+	public void onHeartbeatCheckComplete() {
+		Log.i(LOG_TAG, "Heartbeat check complete!");
 	}
 }
