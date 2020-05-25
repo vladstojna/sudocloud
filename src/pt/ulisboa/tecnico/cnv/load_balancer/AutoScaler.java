@@ -13,7 +13,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
@@ -59,8 +58,8 @@ public class AutoScaler {
 	private final AmazonCloudWatch cw;
 
 	private final InstanceManager instanceManager;
-	private final AtomicInteger currentInstanceCount;
 	private final MetricType metricType;
+	private int currentInstanceCount;
 
 	public AutoScaler(AutoScalerConfig asc, WorkerInstanceConfig wc, InstanceManager im, MetricType mode) {
 
@@ -79,10 +78,10 @@ public class AutoScaler {
 		// this.evaluationCallback = evaluationCallback;
 
 		this.instanceManager = im;
-		this.currentInstanceCount = new AtomicInteger();
+		this.currentInstanceCount = 0;
 		this.metricType = mode;
 		this.cloudWatchExecutor = Executors.newScheduledThreadPool(1);
-		this.instanceExecutor = Executors.newSingleThreadExecutor();
+		this.instanceExecutor = Executors.newFixedThreadPool(2);
 	}
 
 	/**
@@ -186,14 +185,41 @@ public class AutoScaler {
 		if (!startRequest.getInstanceIds().isEmpty())
 			ec2.startInstances(startRequest);
 
+		if (instances.size() != minInstances) {
+			throw new IllegalStateException("Computed instance list size does not match minimum instance count");
+		}
+
 		if (mustAwaitWarmup) {
 			awaitWarmup();
 		}
 
-		currentInstanceCount.addAndGet(instances.size());
+
+
+		setCurrentInstanceCount(minInstances);
 		for (Instance i : instances) {
 			instanceManager.addInstance(new WorkerInstanceHolder(i));
 		}
+	}
+
+	private synchronized void setCurrentInstanceCount(int n) {
+		currentInstanceCount = n;
+		Log.i(LOG_TAG, "Current instance count is " + currentInstanceCount);
+	}
+
+	private synchronized boolean addIfNoOverflow(int quantity) {
+		if (hasOverflowed(currentInstanceCount + quantity))
+			return false;
+		currentInstanceCount += quantity;
+		Log.i(LOG_TAG, "Current instance count is " + currentInstanceCount);
+		return true;
+	}
+
+	private synchronized boolean subIfNoUnderflow(int quantity) {
+		if (hasUnderflowed(currentInstanceCount - quantity))
+			return false;
+		currentInstanceCount -= quantity;
+		Log.i(LOG_TAG, "Current instance count is " + currentInstanceCount);
+		return true;
 	}
 
 	/**
@@ -210,18 +236,11 @@ public class AutoScaler {
 			throw new IllegalArgumentException("instances cannot be empty");
 		}
 
-		if (isAtMin()) {
-			Log.i(LOG_TAG, "Minimum instance count reached");
-			return;
-		}
-
 		Log.i(LOG_TAG, "Terminating " + instances.size() + " instance(s)");
 		TerminateInstancesRequest request = new TerminateInstancesRequest();
 		for (Instance i : instances)
 				request.withInstanceIds(i.getInstanceId());
 		ec2.terminateInstances(request);
-
-		currentInstanceCount.addAndGet(-instances.size());
 	}
 
 	/**
@@ -235,8 +254,8 @@ public class AutoScaler {
 			throw new IllegalArgumentException("quantity must be a positive number");
 		}
 
-		if (isAtMax()) {
-			Log.i(LOG_TAG, "Maximum instance count reached");
+		if (!addIfNoOverflow(quantity)) {
+			Log.i(LOG_TAG, "Tried to add more instances than the maximum allowed");
 			return null;
 		}
 
@@ -254,8 +273,6 @@ public class AutoScaler {
 			.withSecurityGroups(workerConfig.getSecurityGroup())
 			.withMonitoring(true);
 		RunInstancesResult runResult = ec2.runInstances(runRequest);
-
-		currentInstanceCount.addAndGet(quantity);
 
 		return runResult.getReservation().getInstances();
 	}
@@ -310,20 +327,12 @@ public class AutoScaler {
 		});
 	}
 
-	private boolean hasOverflowed() {
-		return currentInstanceCount.get() > autoScalerConfig.getMaxInstances();
+	private boolean hasOverflowed(int n) {
+		return n > autoScalerConfig.getMaxInstances();
 	}
 
-	private boolean hasUnderflowed() {
-		return currentInstanceCount.get() < autoScalerConfig.getMinInstances();
-	}
-
-	private boolean isAtMax() {
-		return currentInstanceCount.get() == autoScalerConfig.getMaxInstances();
-	}
-
-	private boolean isAtMin() {
-		return currentInstanceCount.get() == autoScalerConfig.getMinInstances();
+	private boolean hasUnderflowed(int n) {
+		return n < autoScalerConfig.getMinInstances();
 	}
 
 	private boolean isOverloaded(Double data) {
@@ -383,14 +392,6 @@ public class AutoScaler {
 		}
 
 		private void evaluation() throws InterruptedException {
-
-			if (hasOverflowed()) {
-				throw new IllegalStateException("There are more instances than the maximum!");
-			}
-
-			if (hasUnderflowed()) {
-				throw new IllegalStateException("There are less instances than the minimum!");
-			}
 
 			Set<Entry> statistics = new TreeSet<>();
 
@@ -465,7 +466,7 @@ public class AutoScaler {
 			if (overloadedInstances > underloadedInstances.size()) {
 				createInstanceAsync(instanceManager);
 			} else if (underloadedInstances.size() > overloadedInstances) {
-				if (!isAtMin()) {
+				if (!subIfNoUnderflow(1)) {
 					instanceManager.markForRemoval(underloadedInstances.get(0).holder, AutoScaler.this);
 				} else {
 					Log.e(LOG_TAG, "Unable to mark instance for removal: already at minimum count");
