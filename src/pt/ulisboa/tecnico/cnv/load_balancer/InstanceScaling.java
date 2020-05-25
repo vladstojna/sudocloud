@@ -11,6 +11,12 @@ public interface InstanceScaling {
 	void createInstanceAsync(InstanceManager instanceManager);
 
 	/**
+	 * Attemps to create an instance but may create or not
+	 * @param instanceManager callback
+	 */
+	void attemptCreateInstanceAsync(InstanceManager instanceManager);
+
+	/**
 	 * Asynchronously terminates an instance
 	 * @param instance
 	 */

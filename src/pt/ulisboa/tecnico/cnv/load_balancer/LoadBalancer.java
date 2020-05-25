@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -48,6 +49,8 @@ public class LoadBalancer implements InstanceManager {
 	private final ConcurrentSkipListSet<WorkerInstanceHolder> instances;
 	private final ConcurrentMap<String, StochasticGradientDescent3D> predictors;
 
+	private final AtomicLong pendingRequests;
+
 	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc, PredictorConfig pc) {
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 
@@ -66,6 +69,7 @@ public class LoadBalancer implements InstanceManager {
 
 		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.BalancedComparator());
 		predictors = new ConcurrentHashMap<>();
+		pendingRequests = new AtomicLong();
 
 		dynamoDB = AmazonDynamoDBClientBuilder.standard()
 			.withCredentials(credentialsProvider)
@@ -183,11 +187,21 @@ public class LoadBalancer implements InstanceManager {
 		Log.i(LOG_TAG, "Updated cost for request " + request);
 	}
 
-	public WorkerInstanceHolder chooseInstance(Request request) throws InterruptedException {
+	private boolean predictInstanceScalingNecessity() {
+		long maxCapacity = instances.first().getMaxRequestCapacity();
+		long threshold = 5 * maxCapacity;
+		return pendingRequests.get() / (maxCapacity * instances.size()) >= threshold;
+	}
+
+	public WorkerInstanceHolder chooseInstance(Request request, InstanceScaling instScaling) throws InterruptedException {
 		getAndUpdateCost(request);
-		Log.i("RequestQueue", "Enqueued request " + request.getId());
+		Log.i("RequestQueue", "Enqueued request " + request.getId() + ", pending " + pendingRequests.incrementAndGet());
 		requestLock.lockInterruptibly();
 		try {
+
+			if (predictInstanceScalingNecessity()) {
+				instScaling.createInstanceAsync(this);
+			}
 
 			while (!instances.first().isAvailable()) {
 				requestCondition.await();
@@ -196,7 +210,7 @@ public class LoadBalancer implements InstanceManager {
 			WorkerInstanceHolder holder = instances.pollFirst();
 			holder.addRequest(request);
 			instances.add(holder);
-			Log.i("RequestQueue", "Dequeued request " + request.getId());
+			Log.i("RequestQueue", "Dequeued request " + request.getId() + ", pending " + pendingRequests.decrementAndGet());
 			Log.i(LOG_TAG, "Instance chosen: " + holder);
 
 			return holder;
@@ -212,6 +226,7 @@ public class LoadBalancer implements InstanceManager {
 
 			instances.remove(holder);
 			holder.removeRequest(request.getId());
+
 
 			if (holder.canRemove()) {
 				callback.terminateInstanceAsync(holder.getInstance());
