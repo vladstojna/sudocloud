@@ -1,6 +1,5 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -13,17 +12,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
-import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
-import com.amazonaws.services.dynamodbv2.model.GetItemResult;
-import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
-import com.amazonaws.services.dynamodbv2.model.KeyType;
-import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
-import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
-import com.amazonaws.services.dynamodbv2.util.TableUtils;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
@@ -31,6 +20,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
 import pt.ulisboa.tecnico.cnv.load_balancer.predictor.StochasticGradientDescent3D;
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 public class LoadBalancer implements InstanceManager {
@@ -51,7 +41,7 @@ public class LoadBalancer implements InstanceManager {
 
 	private final AtomicLong pendingRequests;
 
-	public LoadBalancer(DynamoDBConfig dc, WorkerInstanceConfig wc, PredictorConfig pc) {
+	public LoadBalancer(AmazonDynamoDB dynamoDB, DynamoDBConfig dc, WorkerInstanceConfig wc, PredictorConfig pc) {
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 
 		try {
@@ -67,73 +57,17 @@ public class LoadBalancer implements InstanceManager {
 		workerConfig = wc;
 		predictorConfig = pc;
 
+		this.dynamoDB = dynamoDB;
+
 		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.BalancedComparator());
 		predictors = new ConcurrentHashMap<>();
 		pendingRequests = new AtomicLong();
 
-		dynamoDB = AmazonDynamoDBClientBuilder.standard()
-			.withCredentials(credentialsProvider)
-			.withRegion(dynamoDBConfig.getRegion())
-			.build();
-
-		createTableIfNotExists();
-
 		Log.i(LOG_TAG, "initialized");
-	}
-
-	private void createTableIfNotExists() {
-		CreateTableRequest createTableRequest = new CreateTableRequest()
-			.withTableName(dynamoDBConfig.getTableName())
-			.withKeySchema(new KeySchemaElement()
-				.withAttributeName(dynamoDBConfig.getKeyName())
-				.withKeyType(KeyType.HASH))
-			.withAttributeDefinitions(new AttributeDefinition()
-				.withAttributeName(dynamoDBConfig.getKeyName())
-				.withAttributeType(ScalarAttributeType.S))
-			.withProvisionedThroughput(new ProvisionedThroughput()
-				.withReadCapacityUnits(dynamoDBConfig.getReadCapacity())
-				.withWriteCapacityUnits(dynamoDBConfig.getWriteCapacity()));
-
-		boolean result = TableUtils.createTableIfNotExists(dynamoDB, createTableRequest);
-		if (result) {
-			Log.i(LOG_TAG, "Created new table, did not exist previously");
-		} else {
-			Log.i(LOG_TAG, "Table already exists");
-		}
-		try {
-			TableUtils.waitUntilActive(dynamoDB, dynamoDBConfig.getTableName());
-		} catch (Exception e) {
-			throw new AmazonClientException("Table creation error", e);
-		}
 	}
 
 	public WorkerInstanceConfig getWorkerInstanceConfig() {
 		return workerConfig;
-	}
-
-	/**
-	 * Converts a raw key value into a dynamoDB key
-	 * @param keyValue the raw key value
-	 * @return dynamoDB key
-	 */
-	private Map<String, AttributeValue> getDynamoDBKey(String keyValue) {
-		Map<String, AttributeValue> map = new HashMap<>();
-		AttributeValue attributeValue = new AttributeValue().withS(keyValue);
-		map.put(dynamoDBConfig.getKeyName(), attributeValue);
-		return map;
-	}
-
-	/**
-	 * Gets an item from dynamoDB.
-	 * @param requestKey the raw key value
-	 * @return the item or null if not found
-	 */
-	private Map<String, AttributeValue> getItem(String requestKey) {
-		GetItemRequest getRequest = new GetItemRequest(
-			dynamoDBConfig.getTableName(),
-			getDynamoDBKey(requestKey));
-		GetItemResult result = dynamoDB.getItem(getRequest);
-		return result.getItem();
 	}
 
 	/**
@@ -159,7 +93,8 @@ public class LoadBalancer implements InstanceManager {
 	 * @param request the request for which to retrieve and update the cost
 	 */
 	private void getAndUpdateCost(Request request) {
-		Map<String, AttributeValue> items = getItem(request.getQuery());
+		Map<String, AttributeValue> items = DynamoDBUtils
+			.getItem(dynamoDB, dynamoDBConfig, request.getQuery());
 
 		StochasticGradientDescent3D predictor = getOrAddPredictor(
 			request.getQueryParameters().getSolverStrategy());

@@ -6,6 +6,7 @@ import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.sun.net.httpserver.HttpServer;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.AutoScalerConfig;
@@ -15,6 +16,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.StatusHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.SudokuHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.scaling.metric.Median;
+import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 /**
@@ -89,7 +91,10 @@ public class WebServer {
 		PredictorConfig predictorConfig = getPredictorConfig();
 		AutoScalerConfig autoScalerConfig = getAutoScalerConfig();
 
-		LoadBalancer loadBalancer = new LoadBalancer(dynamoDBConfig, workerConfig, predictorConfig);
+		AmazonDynamoDB dynamoDB = DynamoDBUtils.createClient(dynamoDBConfig);
+		DynamoDBUtils.createTableIfNotExists(dynamoDB, dynamoDBConfig);
+
+		LoadBalancer loadBalancer = new LoadBalancer(dynamoDB, dynamoDBConfig, workerConfig, predictorConfig);
 		AutoScaler autoScaler = new AutoScaler(autoScalerConfig, workerConfig, loadBalancer, new Median());
 
 		autoScaler.initialInstanceStartup();
