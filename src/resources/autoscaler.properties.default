@@ -19,4 +19,4 @@ cloudWatchRegion=us-east-1
 
 # cloud watch periods (seconds and has to be a multiple of 60)
 cloudWatchPeriod=60
-cloudWatchOffset=300
+cloudWatchOffset=360

@@ -89,12 +89,13 @@ public class AutoScaler {
 	 * Starts the auto-scaling service
 	 */
 	public void start() {
-		int delay = autoScalerConfig.getCloudWatchOffset() + autoScalerConfig.getCloudWatchPeriod();
+		int delay = autoScalerConfig.getCloudWatchOffset();
 		int period = autoScalerConfig.getPollingPeriod();
 		TimeUnit timeUnit = autoScalerConfig.getTimeUnit();
 
 		Log.i(LOG_TAG, "Started auto-scaling service. Will execute in " +
-			delay + " " + timeUnit.toString());
+			delay + " " + timeUnit.toString() + " every " +
+			period + " " + timeUnit.toString());
 
 		cloudWatchExecutor.scheduleAtFixedRate(new EvaluationRunnable(), delay, period, timeUnit);
 	}
@@ -333,6 +334,10 @@ public class AutoScaler {
 		return data <= autoScalerConfig.getMinCpuUsage();
 	}
 
+	private int minMetricSize() {
+		return autoScalerConfig.getCloudWatchOffset() / autoScalerConfig.getCloudWatchPeriod() - 1;
+	}
+
 	private GetMetricDataRequest getMetricDataRequest(Instance instance) {
 		long currentTime = new Date().getTime();
 		Dimension dimension = new Dimension()
@@ -403,8 +408,8 @@ public class AutoScaler {
 				}
 
 				List<Double> values = metricDataResult.getValues();
-				int minSize = autoScalerConfig.getCloudWatchOffset() / autoScalerConfig.getCloudWatchPeriod();
-				if (values.size() < minSize) {
+				int minSize = minMetricSize();
+				if (values.isEmpty() || values.size() < minSize) {
 					Log.i(LOG_TAG, holder.getInstance().getInstanceId() +
 						" : only " + values.size() + "/" + minSize + " metric(s), not considering");
 				} else {
