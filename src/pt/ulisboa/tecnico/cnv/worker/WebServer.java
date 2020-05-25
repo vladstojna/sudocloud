@@ -7,13 +7,10 @@ import com.sun.net.httpserver.HttpServer;
 import pt.ulisboa.tecnico.cnv.worker.result.DynamoHandler;
 import pt.ulisboa.tecnico.cnv.worker.result.FileHandler;
 import pt.ulisboa.tecnico.cnv.worker.result.ResultHandler;
-import pt.ulisboa.tecnico.cnv.worker.heartbeat.HeartbeatManager;
 
 public class WebServer {
 
 	public static void main(final String[] args) throws Exception {
-
-		HeartbeatManager heartbeatManager = new HeartbeatManager();
 
 		final HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
 
@@ -26,6 +23,9 @@ public class WebServer {
 
 		// health check endpoint
 		server.createContext("/status", new StatusHandler());
+
+		// loadbalancer heartbeat
+		server.createContext("/heartbeat", new HeartbeatHandler());
 
 		// be aware! infinite pool of threads!
 		server.setExecutor(Executors.newCachedThreadPool());

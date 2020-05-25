@@ -17,6 +17,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.handler.StatusHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.handler.SudokuHandler;
 import pt.ulisboa.tecnico.cnv.load_balancer.scaling.metric.Median;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
+
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
 /**

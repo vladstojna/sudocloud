@@ -1,6 +1,9 @@
 package pt.ulisboa.tecnico.cnv.load_balancer;
 
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.BufferedReader;
@@ -18,6 +21,8 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 
+import pt.ulisboa.tecnico.cnv.load_balancer.heartbeat.HeartbeatInterface;
+import pt.ulisboa.tecnico.cnv.load_balancer.heartbeat.HeartbeatManager;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
@@ -26,9 +31,8 @@ import pt.ulisboa.tecnico.cnv.load_balancer.predictor.StochasticGradientDescent3
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
-import pt.ulisboa.tecnico.cnv.load_balancer.handler.HeartbeatHandler;
 
-public class LoadBalancer implements InstanceManager, HeartbeatHandler.Callback {
+public class LoadBalancer implements InstanceManager, HeartbeatInterface {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -67,6 +71,9 @@ public class LoadBalancer implements InstanceManager, HeartbeatHandler.Callback 
 		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.BalancedComparator());
 		predictors = new ConcurrentHashMap<>();
 		pendingRequests = new AtomicLong();
+
+		// initialize ping checking with instances
+		new HeartbeatManager(this);
 
 		Log.i(LOG_TAG, "initialized");
 	}
@@ -212,5 +219,12 @@ public class LoadBalancer implements InstanceManager, HeartbeatHandler.Callback 
 	 **/
 	public void workerHeartbeat(String workerId) {
 		Log.i(LOG_TAG, "Heartbeat from worker " + workerId);
+	}
+
+	public List<String> getWorkerIPs() {
+		List<String> result = new ArrayList<String>();
+		for (Iterator<WorkerInstanceHolder> instance = instances.iterator(); instance.hasNext();)
+			result.add(instance.next().getPublicIpAddress());
+		return result;
 	}
 }

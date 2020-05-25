@@ -107,6 +107,10 @@ public class WorkerInstanceHolder implements Comparable<WorkerInstanceHolder> {
 		}
 	}
 
+	public String getPublicIpAddress() {
+		return instance.getPublicIpAddress();
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
