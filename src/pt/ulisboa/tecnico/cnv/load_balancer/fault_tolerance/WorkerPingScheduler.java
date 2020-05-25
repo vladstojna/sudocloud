@@ -3,6 +3,7 @@ package pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import pt.ulisboa.tecnico.cnv.load_balancer.InstanceManager;
 
 public class WorkerPingScheduler {
 	private static final long PERIOD = 5000L; // heartbeat every 5 seconds
@@ -11,8 +12,8 @@ public class WorkerPingScheduler {
 	private ScheduledExecutorService executor;
 	private WorkerPing workerPing;
 
-	public WorkerPingScheduler(WorkerPingInterface workerPingInterface) {
-		workerPing = new WorkerPing(workerPingInterface);
+	public WorkerPingScheduler(InstanceManager instanceManager) {
+		workerPing = new WorkerPing(instanceManager);
 		executor = Executors.newSingleThreadScheduledExecutor();
 		executor.scheduleAtFixedRate((Runnable) workerPing, DELAY, PERIOD, TimeUnit.MILLISECONDS);
 	}

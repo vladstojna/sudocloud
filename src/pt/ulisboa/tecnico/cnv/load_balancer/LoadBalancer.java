@@ -21,7 +21,6 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 
-import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingInterface;
 import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingScheduler;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
@@ -32,7 +31,7 @@ import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 
-public class LoadBalancer implements InstanceManager, WorkerPingInterface {
+public class LoadBalancer implements InstanceManager {
 
 	private static final String LOG_TAG = LoadBalancer.class.getSimpleName();
 
@@ -227,4 +226,5 @@ public class LoadBalancer implements InstanceManager, WorkerPingInterface {
 			result.add(instance.next().getPublicIpAddress());
 		return result;
 	}
+	
 }

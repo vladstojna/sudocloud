@@ -107,6 +107,10 @@ public class WorkerInstanceHolder implements Comparable<WorkerInstanceHolder> {
 		}
 	}
 
+	public String getInstanceId() {
+		return instance.getInstanceId();
+	}
+
 	public String getPublicIpAddress() {
 		return instance.getPublicIpAddress();
 	}

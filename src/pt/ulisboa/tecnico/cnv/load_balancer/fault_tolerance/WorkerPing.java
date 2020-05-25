@@ -9,7 +9,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.DataOutputStream;
 import java.io.BufferedWriter;
-import java.util.List;
 
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
@@ -23,6 +22,8 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
+import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
+import pt.ulisboa.tecnico.cnv.load_balancer.InstanceManager;
 
 public class WorkerPing implements Runnable {
 
@@ -30,28 +31,29 @@ public class WorkerPing implements Runnable {
 
 	// FIXME this is probably not right
 	private final AmazonEC2 ec2;
-	private WorkerPingInterface workerPingInterface;
+	private final InstanceManager instanceManager;
 
-	public WorkerPing(WorkerPingInterface workerPingInterface) {
+	public WorkerPing(InstanceManager im) {
 		ec2 = AmazonEC2ClientBuilder.defaultClient();
-		this.workerPingInterface = workerPingInterface;
+		this.instanceManager = im;
 	}
 
 	public void run() {
-		for (String workerIP : workerPingInterface.getWorkerIPs())
-			heartbeat(workerIP);
+		for (WorkerInstanceHolder holder : instanceManager.getInstances())
+			heartbeat(holder);
 	}
 
 	/**
 	 * Sends a heartbeat to the respective endpoint on the worker
 	 **/
-	private void heartbeat(String workerIP) {
+	private void heartbeat(WorkerInstanceHolder worker) {
 
 		HttpURLConnection connection = null;
+		StringBuilder response = new StringBuilder();
 
 		try {
-			Log.i(LOG_TAG, "sending ping to worker: " + workerIP);
-			URL url = new URL("http://" + workerIP + ":8000/status");
+			Log.i(LOG_TAG, "sending ping to worker: " + worker.getInstanceId());
+			URL url = new URL("http://" + worker.getPublicIpAddress() + ":8000/status");
 
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setRequestMethod("POST");
@@ -62,7 +64,6 @@ public class WorkerPing implements Runnable {
 			//Get Response
 			InputStream is = connection.getInputStream();
 			BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-			StringBuilder response = new StringBuilder();
 			String line;
 			while ((line = rd.readLine()) != null) {
 				response.append(line);
@@ -70,11 +71,10 @@ public class WorkerPing implements Runnable {
 			}
 			rd.close();
 
-			System.out.println("Heartbeat " + response.toString());
+			Log.i(LOG_TAG, "Worker " + worker.getInstanceId() + " status: " + response.toString());
 
 		} catch (Exception e) {
-			System.out.println("Failed to send ping");
-			System.out.println(e.getMessage());
+			Log.i(LOG_TAG, "Worker " + worker.getInstanceId() + " is unreachable");
 
 		} finally {
 			if (connection != null) {
