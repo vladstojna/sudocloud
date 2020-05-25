@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +50,7 @@ public class AutoScaler {
 	private static final String LOG_TAG = AutoScaler.class.getSimpleName();
 
 	private final ScheduledExecutorService cloudWatchExecutor;
+	private final ExecutorService instanceExecutor;
 
 	private final WorkerInstanceConfig workerConfig;
 	private final AutoScalerConfig autoScalerConfig;
@@ -80,6 +82,7 @@ public class AutoScaler {
 		this.currentInstanceCount = new AtomicInteger();
 		this.metricType = mode;
 		this.cloudWatchExecutor = Executors.newScheduledThreadPool(1);
+		this.instanceExecutor = Executors.newSingleThreadExecutor();
 	}
 
 	/**
@@ -265,12 +268,45 @@ public class AutoScaler {
 		return instances == null ? null : instances.get(0);
 	}
 
+	public void createInstanceAsync(InstanceManager callback) {
+		instanceExecutor.execute(new Runnable() {
+
+			@Override
+			public void run() {
+				Instance instance = createInstance();
+				if (instance != null) {
+					try {
+						awaitWarmup();
+						callback.addInstance(new WorkerInstanceHolder(instance));
+					} catch (InterruptedException e) {
+						terminateInstance(instance);
+						Log.e(LOG_TAG, e);
+					}
+				}
+			}
+		});
+	}
+
 	/**
 	 * Terminate one instance
 	 * @param instance the instance to terminate
 	 */
 	public void terminateInstance(Instance instance) {
 		terminateInstances(Arrays.asList(instance));
+	}
+
+	public void terminateInstanceAsync(Instance instance) {
+		instanceExecutor.execute(new Runnable(){
+
+			@Override
+			public void run() {
+				try {
+					terminateInstance(instance);
+				} catch (Exception e) {
+					Log.e(LOG_TAG, "Unable to terminate instance " + instance.getInstanceId(), e);
+				}
+			}
+		});
 	}
 
 	private boolean hasOverflowed() {
@@ -405,8 +441,32 @@ public class AutoScaler {
 				Log.i(LOG_TAG, "Workload seems balanced; no underloaded or overloaded workers found");
 			}
 
-			// TODO: scaling policy
+			scale(overloadedWorkers, underloadedWorkers);
+		}
 
+		/**
+		 * Scaling policy.
+		 * Places faith in the load balancer to balance the load when there
+		 * is the same quantity of under/overloaded instances.
+		 * When scaling up, only considers that overloaded instances must outnumber
+		 * the other ones.
+		 * When scaling down, marks the least loaded instance from the underloaded
+		 * instances list (first one, since it is ordered by CPU load and total cost)
+		 * @param overloadedInstances number of overloaded workers
+		 * @param underloadedInstances underloaded instances list
+		 */
+		private void scale(int overloadedInstances, List<Entry> underloadedInstances) {
+			if (overloadedInstances > underloadedInstances.size()) {
+				createInstanceAsync(instanceManager);
+			} else if (underloadedInstances.size() > overloadedInstances) {
+				if (!isAtMin()) {
+					instanceManager.markForRemoval(underloadedInstances.get(0).holder);
+				} else {
+					Log.e(LOG_TAG, "Unable to mark instance for removal: already at minimum count");
+				}
+			} else {
+				Log.i(LOG_TAG, "Same # of under/overloaded workers, hope the load balancer will balance it out");
+			}
 		}
 
 		@Override
