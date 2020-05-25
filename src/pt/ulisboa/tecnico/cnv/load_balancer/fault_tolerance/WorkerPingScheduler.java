@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 import pt.ulisboa.tecnico.cnv.load_balancer.InstanceManager;
 
 public class WorkerPingScheduler {
-	private static final long PERIOD = 5000L; // heartbeat every 5 seconds
+	private static final long PERIOD = 5000L; // ping every 5 seconds
 	private static final long DELAY = 0L;
 
 	private ScheduledExecutorService executor;

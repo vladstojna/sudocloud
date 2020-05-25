@@ -40,13 +40,13 @@ public class WorkerPing implements Runnable {
 
 	public void run() {
 		for (WorkerInstanceHolder holder : instanceManager.getInstances())
-			heartbeat(holder);
+			ping(holder);
 	}
 
 	/**
-	 * Sends a heartbeat to the respective endpoint on the worker
+	 * Sends a ping to the respective endpoint on the worker
 	 **/
-	private void heartbeat(WorkerInstanceHolder worker) {
+	private void ping(WorkerInstanceHolder worker) {
 
 		HttpURLConnection connection = null;
 		StringBuilder response = new StringBuilder();
