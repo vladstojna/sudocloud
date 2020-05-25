@@ -15,12 +15,16 @@ import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
  * the Instance it runs on, all the requests currently being processed by that Instance
  * and the total cost of these requests
  */
-public class WorkerInstanceHolder {
+public class WorkerInstanceHolder implements Comparable<WorkerInstanceHolder> {
 
 	private final Instance instance;
+
 	private final Map<Id, Request> requests;
 	private long totalCost;
+
+	private final long maxCapacity;
 	private long requestCapacity;
+	private boolean markedForRemoval;
 
 	/**
 	 * Compares instances in regards to their current workload.
@@ -53,6 +57,20 @@ public class WorkerInstanceHolder {
 		totalCost = 0;
 		CpuOptions cpuOptions = instance.getCpuOptions();
 		requestCapacity = cpuOptions.getCoreCount() * cpuOptions.getThreadsPerCore();
+		maxCapacity = requestCapacity;
+		markedForRemoval = false;
+	}
+
+	public boolean isAvailable() {
+		return markedForRemoval == false && requestCapacity > 0;
+	}
+
+	public void markForRemoval() {
+		markedForRemoval = true;
+	}
+
+	public boolean canRemove() {
+		return markedForRemoval == true && totalCost == 0;
 	}
 
 	public Instance getInstance() {
@@ -65,6 +83,10 @@ public class WorkerInstanceHolder {
 
 	public long getTotalCost() {
 		return totalCost;
+	}
+
+	public long getMaxRequestCapacity() {
+		return maxCapacity;
 	}
 
 	public long getRequestCapacity() {
@@ -116,6 +138,24 @@ public class WorkerInstanceHolder {
 			", requests=" + requests.size() +
 			", totalCost=" + totalCost +
 			", requestCapacity=" + requestCapacity + "]";
+	}
+
+	@Override
+	public int compareTo(WorkerInstanceHolder o) {
+		if (getRequestCapacity() > o.getRequestCapacity())
+			return -1;
+
+		if (getRequestCapacity() < o.getRequestCapacity())
+			return 1;
+
+		if (getTotalCost() < o.getTotalCost())
+			return -1;
+
+		if (getTotalCost() == o.getTotalCost()) {
+			return equals(o) == true ? 0 : 1;
+		}
+
+		return 1;
 	}
 
 }
