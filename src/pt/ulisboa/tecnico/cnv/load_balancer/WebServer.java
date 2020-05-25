@@ -69,14 +69,14 @@ public class WebServer {
 		try (InputStream is = WebServer.class.getClassLoader().getResourceAsStream("autoscaler.properties")) {
 			props.load(is);
 			return new AutoScalerConfig(
-				Integer.parseUnsignedInt(props.getProperty("pollingPeriod")),
-				Integer.parseUnsignedInt(props.getProperty("minInstances")),
-				Integer.parseUnsignedInt(props.getProperty("maxInstances")),
-				Integer.parseUnsignedInt(props.getProperty("warmupPeriod")),
-				Integer.parseUnsignedInt(props.getProperty("minCpuUsage")),
-				Integer.parseUnsignedInt(props.getProperty("maxCpuUsage")),
-				Integer.parseUnsignedInt(props.getProperty("cloudWatchPeriod")),
-				Integer.parseUnsignedInt(props.getProperty("cloudWatchOffset")),
+				Integer.parseInt(props.getProperty("pollingPeriod")),
+				Integer.parseInt(props.getProperty("minInstances")),
+				Integer.parseInt(props.getProperty("maxInstances")),
+				Integer.parseInt(props.getProperty("warmupPeriod")),
+				Integer.parseInt(props.getProperty("minCpuUsage")),
+				Integer.parseInt(props.getProperty("maxCpuUsage")),
+				Integer.parseInt(props.getProperty("cloudWatchPeriod")),
+				Integer.parseInt(props.getProperty("cloudWatchOffset")),
 				props.getProperty("cloudWatchRegion"),
 				TimeUnit.SECONDS);
 		}

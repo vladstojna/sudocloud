@@ -454,7 +454,7 @@ public class AutoScaler implements InstanceScaling {
 
 
 	@Override
-	public void createInstanceAsync(InstanceManager callback) {
+	public void createInstanceAsync(final InstanceManager callback) {
 		instanceExecutor.execute(new Runnable() {
 
 			@Override
@@ -474,7 +474,7 @@ public class AutoScaler implements InstanceScaling {
 	}
 
 	@Override
-	public void terminateInstanceAsync(Instance instance) {
+	public void terminateInstanceAsync(final Instance instance) {
 		instanceExecutor.execute(new Runnable(){
 
 			@Override
