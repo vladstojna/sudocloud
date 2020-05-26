@@ -33,6 +33,7 @@ import java.net.SocketTimeoutException;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
 import pt.ulisboa.tecnico.cnv.load_balancer.instance.WorkerInstanceHolder;
 import pt.ulisboa.tecnico.cnv.load_balancer.InstanceManager;
+import pt.ulisboa.tecnico.cnv.load_balancer.AutoScaler;
 
 public class WorkerPing implements Runnable {
 
@@ -43,11 +44,13 @@ public class WorkerPing implements Runnable {
 
 	private final InstanceManager instanceManager;
 	private WorkerPingListener workerPingListener;
+	private AutoScaler autoScaler;
 
-	public WorkerPing(InstanceManager im, WorkerPingListener workerPingListener) {
+    public WorkerPing(InstanceManager im, WorkerPingListener workerPingListener, AutoScaler autoScaler) {
 		ec2 = AmazonEC2ClientBuilder.defaultClient();
 		this.instanceManager = im;
 		this.workerPingListener = workerPingListener;
+		this.autoScaler = autoScaler;
 	}
 
 	public void run() {
@@ -69,7 +72,7 @@ public class WorkerPing implements Runnable {
 				result.get(PING_TIMEOUT, TimeUnit.SECONDS);
 			} catch (TimeoutException e) {
 				Log.i(LOG_TAG, "Aborted ping due to timeout");
-				workerPingListener.onInstanceUnreachable(holder);
+				workerPingListener.onInstanceUnreachable(holder, autoScaler);
 				result.cancel(true);
 			} catch (InterruptedException e ) {
 				Log.i(LOG_TAG, "Ping interrupted due to timeout");

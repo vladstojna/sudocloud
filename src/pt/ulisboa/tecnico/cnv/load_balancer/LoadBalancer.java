@@ -43,7 +43,6 @@ import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.ec2.model.TagSpecification;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingListener;
-import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingScheduler;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.DynamoDBConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.PredictorConfig;
 import pt.ulisboa.tecnico.cnv.load_balancer.configuration.WorkerInstanceConfig;
@@ -52,6 +51,10 @@ import pt.ulisboa.tecnico.cnv.load_balancer.predictor.StochasticGradientDescent3
 import pt.ulisboa.tecnico.cnv.load_balancer.request.Request;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
+import pt.ulisboa.tecnico.cnv.load_balancer.AutoScaler;
+
+import java.lang.IllegalStateException;
+
 
 public class LoadBalancer implements InstanceManager, WorkerPingListener {
 
@@ -92,9 +95,6 @@ public class LoadBalancer implements InstanceManager, WorkerPingListener {
 		instances = new ConcurrentSkipListSet<>(new WorkerInstanceHolder.BalancedComparator());
 		predictors = new ConcurrentHashMap<>();
 		pendingRequests = new AtomicLong();
-
-		// initialize ping checking with instances
-		new WorkerPingScheduler(this, this);
 
 		Log.i(LOG_TAG, "initialized");
 	}
@@ -249,11 +249,13 @@ public class LoadBalancer implements InstanceManager, WorkerPingListener {
 		return result;
 	}
 	
-	public void onInstanceUnreachable(WorkerInstanceHolder holder) {
-		instances.remove(holder); // FIXME call InstanceManager
-		// instead and deal with concurrency.
-	
-		holder.onInstanceUnreachable();
+	public void onInstanceUnreachable(WorkerInstanceHolder holder, AutoScaler as) {
+		try {
+			markForRemoval(holder, as);
+			holder.onInstanceUnreachable();
+		} catch (InterruptedException e) {
+			throw new IllegalStateException();
+		}
 	}
 
 }

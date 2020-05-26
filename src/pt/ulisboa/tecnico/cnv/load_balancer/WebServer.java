@@ -19,6 +19,9 @@ import pt.ulisboa.tecnico.cnv.load_balancer.scaling.metric.Median;
 import pt.ulisboa.tecnico.cnv.load_balancer.util.DynamoDBUtils;
 
 import pt.ulisboa.tecnico.cnv.load_balancer.util.Log;
+import pt.ulisboa.tecnico.cnv.load_balancer.AutoScaler;
+
+import pt.ulisboa.tecnico.cnv.load_balancer.fault_tolerance.WorkerPingScheduler;
 
 /**
  * LoadBalancer Webserver
@@ -97,6 +100,8 @@ public class WebServer {
 
 		LoadBalancer loadBalancer = new LoadBalancer(dynamoDB, dynamoDBConfig, workerConfig, predictorConfig);
 		AutoScaler autoScaler = new AutoScaler(autoScalerConfig, workerConfig, loadBalancer, new Median());
+		// initialize ping checking with instances
+		new WorkerPingScheduler(loadBalancer, loadBalancer, autoScaler);
 
 		autoScaler.initialInstanceStartup();
 
