@@ -91,7 +91,7 @@ public class WorkerPing implements Runnable {
 
 		try {
 			Log.i(LOG_TAG, "sending ping to worker: " + worker.getInstanceId());
-			URL url = new URL("http://" + worker.getPublicIpAddress() + ":8000/status");
+			URL url = new URL("http://" + worker.getInstance().getPrivateIpAddress() + ":8000/status");
 
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setRequestMethod("POST");
